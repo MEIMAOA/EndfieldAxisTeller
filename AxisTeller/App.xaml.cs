@@ -11,6 +11,9 @@ public partial class App : Application
     public static MainWindow? MainWin { get; private set; }
     public static string? LastStatus { get; set; }
 
+    /// <summary>全局键鼠监听（自动检测动作 + 设置里捕获按键）。</summary>
+    public static InputMonitor Input { get; } = new();
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -27,6 +30,8 @@ public partial class App : Application
 
         DispatcherUnhandledException += OnUnhandled;
         LoadEverything();
+        Input.HoldThresholdMs = State.Settings.AutoHoldMs;
+        Input.Start();
 
         MainWin = new MainWindow();
         MainWin.Show();
@@ -77,6 +82,7 @@ public partial class App : Application
     {
         try
         {
+            Input.Stop();
             if (MainWin is not null) SaveAll();
         }
         catch

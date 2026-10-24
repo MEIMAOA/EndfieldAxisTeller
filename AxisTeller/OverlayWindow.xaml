@@ -53,6 +53,11 @@
                                Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="230" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Border x:Name="AutoBadge" Background="#33F2EA00" BorderBrush="#F2EA00" BorderThickness="1"
+                            Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center" Visibility="Collapsed">
+                        <TextBlock Text="AUTO" FontFamily="{StaticResource MonoFont}" FontSize="8.5"
+                                   Foreground="#F2EA00" />
+                    </Border>
                     <TextBlock x:Name="MetaText" Text="CYCLE 01/03" FontFamily="{StaticResource MonoFont}"
                                FontSize="9.5" Foreground="#99FFFFFF" VerticalAlignment="Center" />
                     <Button x:Name="EditButton" Content="✎" Click="OpenEditor_Click" Width="22" Height="22"

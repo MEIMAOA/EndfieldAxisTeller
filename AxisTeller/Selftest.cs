@@ -29,6 +29,7 @@ public static class Selftest
         TestHotkeyParse();
         TestTokenNormalize();
         TestSeed();
+        TestActionDetection();
 
         var summary = $"\n{_passed} passed, {_failed} failed";
         Log.AppendLine(summary);
@@ -262,6 +263,54 @@ public static class Selftest
         var raw = "{\"code\":0,\"data\":{\"content\":\"  real-token  \"}}";
         Check("解析森空岛 JSON token", SklandClient.NormalizeToken(raw) == "real-token");
         Check("纯 token 原样保留", SklandClient.NormalizeToken(" abc ") == "abc");
+    }
+
+    private static void TestActionDetection()
+    {
+        Check("识别连携技", ActionKinds.Infer("连携技") == ActionKind.ComboSkill);
+        Check("识别 A1 普攻", ActionKinds.Infer("A1普攻") == ActionKind.NormalAttack);
+        Check("识别重攻", ActionKinds.Infer("重攻") == ActionKind.HeavyAttack);
+        Check("识别终结技", ActionKinds.Infer("终结技") == ActionKind.Ultimate);
+        Check("识别战技", ActionKinds.Infer("战技") == ActionKind.Skill);
+        Check("识别闪避", ActionKinds.Infer("闪避") == ActionKind.Dodge);
+        Check("识别切换", ActionKinds.Infer("切换") == ActionKind.Switch);
+        Check("未知动作不误判", ActionKinds.Infer("等 CD") == ActionKind.Unknown);
+
+        var explicitStep = new Step { Action = "自定义", Kind = nameof(ActionKind.ComboSkill) };
+        Check("显式类型优先于文字", explicitStep.ResolvedKind == ActionKind.ComboSkill);
+        var inferredStep = new Step { Action = "连携技" };
+        Check("不写类型也能推断", inferredStep.ResolvedKind == ActionKind.ComboSkill);
+
+        var settings = new AppSettings();
+        Check("默认绑定：E = 战技", ActionKinds.MatchInput("E", settings) == ActionKind.Skill);
+        Check("默认绑定：左键 = 普攻", ActionKinds.MatchInput("MouseLeft", settings) == ActionKind.NormalAttack);
+        Check("默认绑定：长按左键 = 重攻", ActionKinds.MatchInput("MouseLeftHold", settings) == ActionKind.HeavyAttack);
+        Check("默认绑定：F = 连携", ActionKinds.MatchInput("F", settings) == ActionKind.ComboSkill);
+        Check("默认绑定：Q = 终结", ActionKinds.MatchInput("Q", settings) == ActionKind.Ultimate);
+        Check("默认绑定：空格 = 闪避", ActionKinds.MatchInput("Space", settings) == ActionKind.Dodge);
+        Check("默认绑定：1-4 都算切换",
+            ActionKinds.MatchInput("1", settings) == ActionKind.Switch &&
+            ActionKinds.MatchInput("4", settings) == ActionKind.Switch);
+        Check("未绑定的输入不触发", ActionKinds.MatchInput("F9", settings) is null);
+
+        var comboStep = new Step { Action = "连携技" };
+        Check("匹配模式：动作不同不完成",
+            !ActionKinds.IsCurrentStepCompleted(comboStep, ActionKind.Skill, "match"));
+        Check("匹配模式：动作相同则完成",
+            ActionKinds.IsCurrentStepCompleted(comboStep, ActionKind.ComboSkill, "match"));
+        var customStep = new Step { Action = "随便写点什么" };
+        Check("自定义文字：任意操作都算完成",
+            ActionKinds.IsCurrentStepCompleted(customStep, ActionKind.NormalAttack, "match"));
+        Check("任意模式：任何检测都完成",
+            ActionKinds.IsCurrentStepCompleted(comboStep, ActionKind.Dodge, "any"));
+
+        settings.AutoDetect = true;
+        settings.AutoBindCombo = "Key:R";
+        settings.AutoHoldMs = 500;
+        var clone = settings.Clone();
+        Check("自动检测设置可存档",
+            clone.AutoDetect && clone.AutoBindCombo == "Key:R" && clone.AutoHoldMs == 500);
+        Check("绑定文字规范化", ActionKinds.NormalizeBinding("Key:Space") == "Space");
     }
 
     private static void TestSeed()

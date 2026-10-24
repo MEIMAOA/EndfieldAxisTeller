@@ -31,6 +31,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        App.Input.Detected += OnInputDetected;
+
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
         _saveTimer.Tick += (_, _) =>
         {
@@ -420,6 +422,49 @@ public partial class MainWindow : Window
         OpenMenu(menu, (FrameworkElement)sender);
     }
 
+    private void KindMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not Step step) return;
+        var menu = new ContextMenu();
+        menu.Items.Add(MakeMenuItem("自动识别（按动作文字）", () =>
+        {
+            step.Kind = "";
+            MarkDirty();
+        }));
+        menu.Items.Add(new Separator());
+        foreach (var kind in ActionKinds.Selectable)
+        {
+            var target = kind;
+            menu.Items.Add(MakeMenuItem(ActionKinds.FullLabel(target), () =>
+            {
+                step.Kind = target.ToString();
+                MarkDirty();
+            }));
+        }
+
+        OpenMenu(menu, (FrameworkElement)sender);
+    }
+
+    /// <summary>全局键鼠监听回调：检测到与当前步骤匹配的操作就自动推进。</summary>
+    private void OnInputDetected(string binding)
+    {
+        var settings = State.Settings;
+        if (!settings.AutoDetect) return;
+        if (_overlay is not { IsVisible: true }) return;
+
+        var detected = ActionKinds.MatchInput(binding, settings);
+        if (detected is null) return;
+
+        var step = _engine.CurrentStep;
+        if (step is null) return;
+        if (!ActionKinds.IsCurrentStepCompleted(step, detected.Value, settings.AutoDetectMode)) return;
+
+        _engine.Next(settings.LoopInfinite);
+        _overlay.Refresh();
+        _overlay.ShowDetected(ActionKinds.FullLabel(detected.Value));
+        UpdateStatusForStep();
+    }
+
     private void LoopsMinus_Click(object sender, RoutedEventArgs e)
     {
         if (CurrentAxis is null) return;
@@ -459,7 +504,6 @@ public partial class MainWindow : Window
         _overlay.ApplySettings();
         _overlay.Refresh();
         _overlay.Show();
-        _overlay.Activate();
         Hide();
         SetStatus("提示窗已打开：按键推进动作，F6 显示/隐藏");
     }

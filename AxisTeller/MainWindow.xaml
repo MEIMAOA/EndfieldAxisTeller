@@ -261,8 +261,9 @@
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="30" />
-                                                                    <ColumnDefinition Width="210" />
-                                                                    <ColumnDefinition Width="126" />
+                                                                    <ColumnDefinition Width="206" />
+                                                                    <ColumnDefinition Width="122" />
+                                                                    <ColumnDefinition Width="74" />
                                                                     <ColumnDefinition Width="*" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
@@ -306,11 +307,18 @@
                                                                             Click="ActionMenu_Click" ToolTip="常用动作" />
                                                                 </Grid>
 
-                                                                <TextBox Grid.Column="3" Text="{Binding Note, UpdateSourceTrigger=PropertyChanged}"
+                                                                <Button Grid.Column="3" Content="{Binding KindLabel}"
+                                                                        Style="{StaticResource TinyButton}" Margin="0,0,10,0"
+                                                                        FontSize="10.5" BorderBrush="{StaticResource BorderSoft}"
+                                                                        BorderThickness="1" Padding="4,0" Height="26"
+                                                                        Click="KindMenu_Click"
+                                                                        ToolTip="动作类型：开启自动检测后，识别到这个类型的操作才算完成本步" />
+
+                                                                <TextBox Grid.Column="4" Text="{Binding Note, UpdateSourceTrigger=PropertyChanged}"
                                                                          TextChanged="DataTextChanged" Margin="0,0,10,0"
                                                                          ToolTip="备注，例如：等 CD / 留终结技 / 面向调整" />
 
-                                                                <StackPanel Grid.Column="4" Orientation="Horizontal">
+                                                                <StackPanel Grid.Column="5" Orientation="Horizontal">
                                                                     <Button Content="↑" Style="{StaticResource IconButton}" Width="24" Height="24" Click="StepUp_Click" ToolTip="上移" />
                                                                     <Button Content="↓" Style="{StaticResource IconButton}" Width="24" Height="24" Click="StepDown_Click" ToolTip="下移" />
                                                                     <Button Content="✕" Style="{StaticResource DangerIconButton}" Width="24" Height="24" Click="StepDelete_Click" ToolTip="删除动作" />

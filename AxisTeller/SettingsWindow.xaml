@@ -92,9 +92,103 @@
                             Padding="16,14" Margin="0,10,0,0">
                         <StackPanel>
                             <CheckBox x:Name="LoopInfiniteCheck" Content="走完所有轮数后继续从头循环（无限循环）"
-                                      Click="LoopInfinite_Click" />
+                                      Checked="LoopInfinite_Click" Unchecked="LoopInfinite_Click" />
                             <CheckBox x:Name="TopmostCheck" Content="提示窗永远置顶" Margin="0,14,0,0"
-                                      Click="Topmost_Click" />
+                                      Checked="Topmost_Click" Unchecked="Topmost_Click" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 自动检测 -->
+                    <TextBlock Text="// AUTO DETECT" Style="{StaticResource Mono}" FontSize="9" Margin="0,22,0,0" />
+                    <TextBlock Text="自动检测完成" Style="{StaticResource SectionTitle}" Margin="0,2,0,0" />
+                    <Border Background="{StaticResource BgPanel}" BorderBrush="{StaticResource Ink}" BorderThickness="1"
+                            Padding="16,14" Margin="0,10,0,0">
+                        <StackPanel>
+                            <CheckBox x:Name="AutoDetectCheck"
+                                      Content="开启：检测到当前步骤对应的键鼠操作时，自动标记完成并推进"
+                                      Checked="AutoDetect_Click" Unchecked="AutoDetect_Click" />
+                            <Grid Margin="0,14,0,0">
+                                <TextBlock Text="匹配方式" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="AutoModeMatchButton" Tag="match" Content="匹配动作（推荐）"
+                                            Style="{StaticResource OutlineButton}" Click="AutoMode_Click"
+                                            Padding="10,5" FontSize="11.5" />
+                                    <Button x:Name="AutoModeAnyButton" Tag="any" Content="任意操作"
+                                            Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
+                                            Click="AutoMode_Click" Padding="10,5" FontSize="11.5" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="// KEY BINDINGS　点击按钮后，按下游戏里的对应按键（或鼠标左键）即可重新绑定"
+                                       Style="{StaticResource Mono}" FontSize="8.5" Margin="0,16,0,8" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Text="普攻 / A1" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindNormalButton" Tag="NormalAttack" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="0" Grid.Column="2">
+                                    <TextBlock Text="重攻 / 重击" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindHeavyButton" Tag="HeavyAttack" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="2" Grid.Column="0">
+                                    <TextBlock Text="战技" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindSkillButton" Tag="Skill" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="2" Grid.Column="2">
+                                    <TextBlock Text="连携技" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindComboButton" Tag="ComboSkill" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="4" Grid.Column="0">
+                                    <TextBlock Text="终结技" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindUltimateButton" Tag="Ultimate" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="4" Grid.Column="2">
+                                    <TextBlock Text="闪避" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindDodgeButton" Tag="Dodge" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="6" Grid.Column="0">
+                                    <TextBlock Text="切换干员（1-4 都算）" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="BindSwitchButton" Tag="Switch" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="130" Click="BindCapture_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="6" Grid.Column="2">
+                                    <TextBlock Text="重攻判定：按住鼠标左键超过" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="−" Style="{StaticResource IconButton}" Width="24" Height="24"
+                                                Click="HoldMinus_Click" />
+                                        <TextBlock x:Name="HoldText" Text="350ms" Width="58" TextAlignment="Center"
+                                                   VerticalAlignment="Center" Style="{StaticResource MonoStrong}" />
+                                        <Button Content="+" Style="{StaticResource IconButton}" Width="24" Height="24"
+                                                Click="HoldPlus_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+
+                            <TextBlock x:Name="AutoStatus" Style="{StaticResource Caption}" Margin="0,12,0,0"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="说明：工具只能识别键盘 / 鼠标操作，无法读取游戏内战斗状态；开启后请在提示窗运行时使用，编辑时不会触发。连携技等按键因人而异，可点上面的按钮按你游戏里的键重新绑定。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
 

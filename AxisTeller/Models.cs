@@ -58,6 +58,18 @@ public sealed class Step : ObservableObject
     /// <summary>动作，如 战技 / 连携技 / 终结技 / 切换。</summary>
     public string Action { get => _action; set { if (Set(ref _action, value)) OnChanged(); } }
 
+    private string _kind = "";
+
+    /// <summary>显式指定的动作类型（为空则从 Action 文字自动推断）。</summary>
+    public string Kind { get => _kind; set { if (Set(ref _kind, value)) OnChanged(); } }
+
+    /// <summary>解析后的动作类型，用于自动检测「当前步骤是否完成」。</summary>
+    [JsonIgnore]
+    public ActionKind ResolvedKind => ActionKinds.Resolve(Action, Kind);
+
+    [JsonIgnore]
+    public string KindLabel => ActionKinds.Label(ResolvedKind);
+
     /// <summary>备注，例如 等CD、留终结技、面向调整。</summary>
     public string Note { get => _note; set { if (Set(ref _note, value)) OnChanged(); } }
 
@@ -84,6 +96,8 @@ public sealed class Step : ObservableObject
         Raise(nameof(DisplayName));
         Raise(nameof(ActionText));
         Raise(nameof(HasNote));
+        Raise(nameof(ResolvedKind));
+        Raise(nameof(KindLabel));
     }
 }
 
@@ -203,6 +217,16 @@ public sealed class AppSettings : ObservableObject
     private string _sklandServer = "cn";
     private string _sklandToken = "";
     private string _sklandUserName = "";
+    private bool _autoDetect;
+    private string _autoDetectMode = "match";
+    private string _autoBindNormal = "MouseLeft";
+    private string _autoBindHeavy = "MouseLeftHold";
+    private string _autoBindSkill = "E";
+    private string _autoBindCombo = "F";
+    private string _autoBindUltimate = "Q";
+    private string _autoBindDodge = "Space";
+    private string _autoBindSwitch = "1";
+    private int _autoHoldMs = 350;
 
     public string NextKey { get => _nextKey; set => Set(ref _nextKey, value); }
     public string PrevKey { get => _prevKey; set => Set(ref _prevKey, value); }
@@ -224,6 +248,23 @@ public sealed class AppSettings : ObservableObject
     public string SklandToken { get => _sklandToken; set => Set(ref _sklandToken, value); }
 
     public string SklandUserName { get => _sklandUserName; set => Set(ref _sklandUserName, value); }
+
+    /// <summary>开启后，检测到与当前步骤动作匹配的键鼠操作时自动推进。</summary>
+    public bool AutoDetect { get => _autoDetect; set => Set(ref _autoDetect, value); }
+
+    /// <summary>match = 只认匹配的动作类型；any = 任意操作都算完成。</summary>
+    public string AutoDetectMode { get => _autoDetectMode; set => Set(ref _autoDetectMode, value); }
+
+    public string AutoBindNormal { get => _autoBindNormal; set => Set(ref _autoBindNormal, value); }
+    public string AutoBindHeavy { get => _autoBindHeavy; set => Set(ref _autoBindHeavy, value); }
+    public string AutoBindSkill { get => _autoBindSkill; set => Set(ref _autoBindSkill, value); }
+    public string AutoBindCombo { get => _autoBindCombo; set => Set(ref _autoBindCombo, value); }
+    public string AutoBindUltimate { get => _autoBindUltimate; set => Set(ref _autoBindUltimate, value); }
+    public string AutoBindDodge { get => _autoBindDodge; set => Set(ref _autoBindDodge, value); }
+    public string AutoBindSwitch { get => _autoBindSwitch; set => Set(ref _autoBindSwitch, value); }
+
+    /// <summary>鼠标左键按住超过多少毫秒算「重攻」。</summary>
+    public int AutoHoldMs { get => _autoHoldMs; set => Set(ref _autoHoldMs, Math.Clamp(value, 120, 1200)); }
 
     public double OverlayLeft { get; set; } = double.NaN;
     public double OverlayTop { get; set; } = double.NaN;
@@ -251,6 +292,16 @@ public sealed class AppSettings : ObservableObject
         SklandServer = other.SklandServer;
         SklandToken = other.SklandToken;
         SklandUserName = other.SklandUserName;
+        AutoDetect = other.AutoDetect;
+        AutoDetectMode = other.AutoDetectMode;
+        AutoBindNormal = other.AutoBindNormal;
+        AutoBindHeavy = other.AutoBindHeavy;
+        AutoBindSkill = other.AutoBindSkill;
+        AutoBindCombo = other.AutoBindCombo;
+        AutoBindUltimate = other.AutoBindUltimate;
+        AutoBindDodge = other.AutoBindDodge;
+        AutoBindSwitch = other.AutoBindSwitch;
+        AutoHoldMs = other.AutoHoldMs;
         OverlayLeft = other.OverlayLeft;
         OverlayTop = other.OverlayTop;
         OverlayWidth = other.OverlayWidth;

@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
 {
     private readonly OperatorLibrary _library;
     private AppSettings _draft;
+    private ActionKind? _captureKind;
 
     public event EventHandler? Saved;
     public event EventHandler? Synced;
@@ -20,6 +21,9 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _library = library;
         _draft = settings.Clone();
+
+        App.Input.Captured += OnInputCaptured;
+        Closed += (_, _) => CancelCapture();
 
         Loaded += (_, _) => RefreshUi();
     }
@@ -35,17 +39,122 @@ public partial class SettingsWindow : Window
         LoopInfiniteCheck.IsChecked = _draft.LoopInfinite;
         TopmostCheck.IsChecked = _draft.Topmost;
 
+        AutoDetectCheck.IsChecked = _draft.AutoDetect;
+        ApplyModeStyle(AutoModeMatchButton, !string.Equals(_draft.AutoDetectMode, "any", StringComparison.OrdinalIgnoreCase));
+        ApplyModeStyle(AutoModeAnyButton, string.Equals(_draft.AutoDetectMode, "any", StringComparison.OrdinalIgnoreCase));
+
+        BindNormalButton.Content = ActionKinds.BindingLabel(_draft.AutoBindNormal);
+        BindHeavyButton.Content = ActionKinds.BindingLabel(_draft.AutoBindHeavy);
+        BindSkillButton.Content = ActionKinds.BindingLabel(_draft.AutoBindSkill);
+        BindComboButton.Content = ActionKinds.BindingLabel(_draft.AutoBindCombo);
+        BindUltimateButton.Content = ActionKinds.BindingLabel(_draft.AutoBindUltimate);
+        BindDodgeButton.Content = ActionKinds.BindingLabel(_draft.AutoBindDodge);
+        BindSwitchButton.Content = ActionKinds.BindingLabel(_draft.AutoBindSwitch);
+        HoldText.Text = $"{_draft.AutoHoldMs}ms";
+        if (_captureKind is null)
+            AutoStatus.Text = _draft.AutoDetect
+                ? "已开启：提示窗运行时，检测到匹配操作会自动推进。"
+                : "未开启：仍可用热键手动推进。";
+
         TokenBox.Text = _draft.SklandToken;
         UserText.Text = string.IsNullOrWhiteSpace(_draft.SklandUserName)
             ? "尚未同步账号角色"
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.0.0 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.1.0 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
             : "还未同步过账号角色，内置角色库可以直接用。";
+    }
+
+    private void ApplyModeStyle(Button button, bool active)
+    {
+        button.Background = active ? (Brush)FindResource("Ink") : (Brush)FindResource("BgPanel");
+        button.Foreground = active ? (Brush)FindResource("OnInk") : (Brush)FindResource("Ink");
+        button.BorderBrush = (Brush)FindResource("Ink");
+    }
+
+    // ============================== 自动检测 ==============================
+
+    private void AutoDetect_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.AutoDetect = AutoDetectCheck.IsChecked == true;
+        AutoStatus.Text = _draft.AutoDetect
+            ? "已开启：提示窗运行时，检测到匹配操作会自动推进。"
+            : "未开启：仍可用热键手动推进。";
+    }
+
+    private void AutoMode_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.AutoDetectMode = (sender as FrameworkElement)?.Tag?.ToString() == "any" ? "any" : "match";
+        RefreshUi();
+    }
+
+    private void BindCapture_Click(object sender, RoutedEventArgs e)
+    {
+        if (_captureKind is not null)
+        {
+            CancelCapture();
+            RefreshUi();
+            AutoStatus.Text = "已取消绑定。";
+            return;
+        }
+
+        var button = (Button)sender;
+        var kind = ActionKinds.Parse(button.Tag?.ToString());
+        if (kind == ActionKind.Unknown) return;
+
+        _captureKind = kind;
+        App.Input.HoldThresholdMs = _draft.AutoHoldMs;
+        App.Input.Capturing = true;
+        button.Content = "请按键…";
+        AutoStatus.Text = $"正在监听【{ActionKinds.FullLabel(kind)}】：请按键盘，或按一下鼠标左键；再点一次按钮可取消。";
+    }
+
+    private void OnInputCaptured(string binding)
+    {
+        if (_captureKind is not { } kind) return;
+        SetBinding(kind, binding);
+        AutoStatus.Text = $"已绑定【{ActionKinds.FullLabel(kind)}】→ {ActionKinds.BindingLabel(binding)}";
+        CancelCapture();
+        RefreshUi();
+    }
+
+    private void CancelCapture()
+    {
+        if (_captureKind is null) return;
+        _captureKind = null;
+        App.Input.Capturing = false;
+    }
+
+    private void SetBinding(ActionKind kind, string binding)
+    {
+        switch (kind)
+        {
+            case ActionKind.NormalAttack: _draft.AutoBindNormal = binding; break;
+            case ActionKind.HeavyAttack: _draft.AutoBindHeavy = binding; break;
+            case ActionKind.Skill: _draft.AutoBindSkill = binding; break;
+            case ActionKind.ComboSkill: _draft.AutoBindCombo = binding; break;
+            case ActionKind.Ultimate: _draft.AutoBindUltimate = binding; break;
+            case ActionKind.Dodge: _draft.AutoBindDodge = binding; break;
+            case ActionKind.Switch: _draft.AutoBindSwitch = binding; break;
+        }
+    }
+
+    private void HoldMinus_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.AutoHoldMs -= 50;
+        HoldText.Text = $"{_draft.AutoHoldMs}ms";
+        App.Input.HoldThresholdMs = _draft.AutoHoldMs;
+    }
+
+    private void HoldPlus_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.AutoHoldMs += 50;
+        HoldText.Text = $"{_draft.AutoHoldMs}ms";
+        App.Input.HoldThresholdMs = _draft.AutoHoldMs;
     }
 
     private void UpdateServerButtons()
@@ -179,8 +288,10 @@ public partial class SettingsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        CancelCapture();
         _draft.SklandToken = TokenBox.Text.Trim();
         App.State.Settings.CopyFrom(_draft);
+        App.Input.HoldThresholdMs = App.State.Settings.AutoHoldMs;
         App.SaveAll();
         Saved?.Invoke(this, EventArgs.Empty);
         Close();
