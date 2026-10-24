@@ -1,0 +1,25 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.DotSettings.user
+
+# packaged builds (use GitHub Releases instead)
+dist/
+
+# test output
+selftest-report.txt
+TestResults/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
