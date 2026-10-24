@@ -26,9 +26,9 @@ jobs:
         shell: pwsh
         run: |
           $exe = "AxisTeller/bin/Release/net10.0-windows/AxisTeller.exe"
-          & $exe --selftest selftest-report.txt
+          $p = Start-Process -FilePath $exe -ArgumentList @('--selftest', 'selftest-report.txt') -Wait -PassThru
           Get-Content selftest-report.txt
-          if ($LASTEXITCODE -ne 0) { throw "self test failed (exit $LASTEXITCODE)" }
+          if ($p.ExitCode -ne 0) { throw "self test failed (exit $($p.ExitCode))" }
 
       - name: Publish
         run: dotnet publish AxisTeller/AxisTeller.csproj -c Release -o publish
