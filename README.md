@@ -171,7 +171,8 @@ docs/                  界面截图
 ## 开源许可
 
 - 代码以 [MIT License](LICENSE) 开源，欢迎 Issue / PR。
-- `AxisTeller/Assets/Icons` 中的干员头像、名称等素材版权归鹰角网络所有，仅用于本非商业玩家工具的离线展示。
+- `AxisTeller/Assets/Icons` 中的干员头像、名称等素材版权归鹰角网络所有，仅用于本非商业玩家工具的离线展示，
+  详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 - 本项目为玩家自用工具，与鹰角网络无关；请勿用于违反游戏用户协议的行为。
 
 ## 致谢
