@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly PlaybackEngine _engine = new();
     private readonly HotkeyManager _hotkeys = new();
     private readonly DispatcherTimer _saveTimer;
+    private readonly DispatcherTimer _screenStatusTimer;
     private OverlayWindow? _overlay;
     private SettingsWindow? _settings;
     private bool _loading;
@@ -40,6 +41,9 @@ public partial class MainWindow : Window
             _saveTimer.Stop();
             SaveNow();
         };
+
+        _screenStatusTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _screenStatusTimer.Tick += (_, _) => UpdateScreenStatus();
 
         RestoreWindowBounds();
         RefreshAxisList();
@@ -537,14 +541,44 @@ public partial class MainWindow : Window
         _overlay.Show();
         Hide();
         ConfigureDetection();
+        if (State.Settings.DetectSource == "screen") _screenStatusTimer.Start();
+        else _screenStatusTimer.Stop();
+        UpdateScreenStatus();
         SetStatus("提示窗已打开：" +
                   (State.Settings.DetectSource == "screen" ? "画面识别中（匹配到当前动作自动推进）" : "按键推进动作，F6 显示/隐藏"));
+    }
+
+    private void UpdateScreenStatus()
+    {
+        if (_overlay is not { IsVisible: true } || State.Settings.DetectSource != "screen")
+        {
+            _screenStatusTimer.Stop();
+            return;
+        }
+
+        var kind = _engine.CurrentStep?.ResolvedKind ?? ActionKind.Unknown;
+        var count = kind == ActionKind.Unknown ? App.Screen.TotalTemplateCount : App.Screen.TemplateCount(kind);
+        var kindLabel = kind == ActionKind.Unknown ? "自动" : ActionKinds.Label(kind);
+
+        string hint;
+        if (count == 0)
+        {
+            hint = $"画面识别中 · 当前动作【{kindLabel}】还没有模板，去「设置 → 管理模板」截一张";
+        }
+        else
+        {
+            var score = App.Screen.LastScore;
+            hint = $"画面识别中 · 模板 {count} 张 · 匹配 {(score < 0 ? "--" : $"{score * 100:0}%")}";
+        }
+
+        _overlay!.SetDetectStatus(hint + $" · {State.Settings.NextKey} 手动 · {State.Settings.ToggleOverlayKey} 隐藏");
     }
 
     private void ConfigureDetection()
     {
         App.Screen.Detected -= OnScreenDetected;
         App.Screen.Error -= OnScreenError;
+        App.Screen.Warning -= OnScreenWarning;
         App.Screen.Stop();
 
         if (State.Settings.DetectSource == "screen")
@@ -558,6 +592,7 @@ public partial class MainWindow : Window
 
             App.Screen.Detected += OnScreenDetected;
             App.Screen.Error += OnScreenError;
+            App.Screen.Warning += OnScreenWarning;
             App.Screen.Start(App.CaptureItem, State.Settings.ScreenMatchThreshold);
         }
 
@@ -587,6 +622,13 @@ public partial class MainWindow : Window
     private void UpdateScreenTarget() =>
         App.Screen.SetTarget(_engine.CurrentStep?.ResolvedKind ?? ActionKind.Unknown);
 
+    private void OnScreenWarning(string message) =>
+        Dispatcher.BeginInvoke(() =>
+        {
+            SetStatus("画面识别：" + message);
+            _overlay?.SetDetectStatus("⚠ " + message);
+        });
+
     private OverlayWindow CreateOverlay()
     {
         var overlay = new OverlayWindow(_engine, State.Settings);
@@ -605,6 +647,7 @@ public partial class MainWindow : Window
         };
         overlay.Closed += (_, _) =>
         {
+            _screenStatusTimer.Stop();
             App.Screen.Stop();
             _overlay = null;
             if (_exiting) return;
@@ -639,6 +682,7 @@ public partial class MainWindow : Window
 
         _overlay?.Refresh();
         UpdateScreenTarget();
+        App.Screen.ReArm();
         UpdateStatusForStep();
     }
 
@@ -646,6 +690,7 @@ public partial class MainWindow : Window
     {
         if (_overlay is { IsVisible: true })
         {
+            _screenStatusTimer.Stop();
             App.Screen.Stop();
             _overlay.Hide();
             if (!IsVisible) Show();

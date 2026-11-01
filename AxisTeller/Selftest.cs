@@ -368,6 +368,34 @@ public static class Selftest
         var foreignScore = matcher.Match(frame, width, height, foreignPng);
         Check("无关模板得分低于图标模板", foreignScore < score, $"foreign={foreignScore:F3} icon={score:F3}");
 
+        // 宽屏（>1280）走降采样匹配路径
+        var wideWidth = 2000;
+        var wideHeight = 400;
+        var wide = new byte[wideWidth * wideHeight * 4];
+        for (var y = 0; y < wideHeight; y++)
+        for (var x = 0; x < wideWidth; x++)
+        {
+            var o = (y * wideWidth + x) * 4;
+            var v = (byte)(40 + (x + y) % 150);
+            wide[o] = v;
+            wide[o + 1] = v;
+            wide[o + 2] = v;
+            wide[o + 3] = 255;
+        }
+
+        for (var y = 150; y < 270; y++)
+        for (var x = 900; x < 1020; x++)
+        {
+            var o = (y * wideWidth + x) * 4;
+            wide[o] = 20;
+            wide[o + 1] = 200;
+            wide[o + 2] = 250;
+        }
+
+        var widePng = AxisTeller.Vision.TemplateMatcher.CropToPng(wide, wideWidth, wideHeight, 900, 150, 120, 120);
+        var wideScore = matcher.Match(wide, wideWidth, wideHeight, widePng);
+        Check("宽屏降采样匹配", wideScore >= 0.8, $"score={wideScore:F3}");
+
         var temp = Path.Combine(Path.GetTempPath(), "axis-teller-tpl-" + Guid.NewGuid().ToString("N"));
         var oldRoot = Store.Root;
         try

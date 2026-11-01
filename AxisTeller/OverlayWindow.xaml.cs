@@ -48,20 +48,34 @@ public partial class OverlayWindow : Window
         LocationChanged += (_, _) => SavePosition();
     }
 
+    private string BuildHint()
+    {
+        if (string.Equals(_settings.DetectSource, "screen", StringComparison.OrdinalIgnoreCase))
+            return $"画面识别中 · {_settings.NextKey} 手动下一步 · {_settings.ToggleOverlayKey} 隐藏";
+
+        return _settings.AutoDetect
+            ? $"自动检测中 · {_settings.NextKey} 手动下一步 · {_settings.ToggleOverlayKey} 隐藏"
+            : $"{_settings.NextKey} 下一步 · {_settings.NextCycleKey} 下一循环 · {_settings.ResetKey} 重来 · {_settings.ToggleOverlayKey} 隐藏";
+    }
+
     public void ApplySettings()
     {
         Topmost = _settings.Topmost;
         AutoBadge.Visibility = _settings.AutoDetect ? Visibility.Visible : Visibility.Collapsed;
-        HotkeyHintText.Text = _settings.AutoDetect
-            ? $"自动检测中 · {_settings.NextKey} 手动下一步 · {_settings.ToggleOverlayKey} 隐藏"
-            : $"{_settings.NextKey} 下一步 · {_settings.NextCycleKey} 下一循环 · {_settings.ResetKey} 重来 · {_settings.ToggleOverlayKey} 隐藏";
+        HotkeyHintText.Text = BuildHint();
     }
 
     /// <summary>自动检测到动作后，在「接下来」行给出一次即时反馈。</summary>
     public void ShowDetected(string label)
     {
-        NextCycleHint.Text = "✔ 识别：" + label;
+        var score = App.Screen.LastScore;
+        NextCycleHint.Text = score >= 0 && score <= 1
+            ? $"✔ 识别：{label}　{score * 100:0}%"
+            : "✔ 识别：" + label;
     }
+
+    /// <summary>由主窗口定时刷新底部状态行（显示画面识别的模板数 / 实时匹配度）。</summary>
+    public void SetDetectStatus(string text) => HotkeyHintText.Text = text;
 
     private void RestorePosition()
     {
@@ -108,9 +122,7 @@ public partial class OverlayWindow : Window
         RoundText.Text = _settings.LoopInfinite
             ? $"ROUND {_engine.Round:00} · ∞"
             : rounds > 1 ? $"ROUND {_engine.Round:00}/{rounds:00}" : "ROUND 01";
-        HotkeyHintText.Text = _settings.AutoDetect
-            ? $"自动检测中 · {_settings.NextKey} 手动下一步 · {_settings.ToggleOverlayKey} 隐藏"
-            : $"{_settings.NextKey} 下一步 · {_settings.NextCycleKey} 下一循环 · {_settings.ResetKey} 重来 · {_settings.ToggleOverlayKey} 隐藏";
+        HotkeyHintText.Text = BuildHint();
 
         var total = Math.Max(0, _engine.TotalSteps);
         var currentIndex = _engine.StepNumberInRound;

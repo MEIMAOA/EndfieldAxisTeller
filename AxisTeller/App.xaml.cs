@@ -50,6 +50,19 @@ public partial class App : Application
             return;
         }
 
+        var diagIndex = Array.FindIndex(args, a => string.Equals(a, "--screen-diag", StringComparison.OrdinalIgnoreCase));
+        if (diagIndex >= 0)
+        {
+            var hwnd = diagIndex + 1 < args.Length && long.TryParse(args[diagIndex + 1], out var h)
+                ? new IntPtr(h)
+                : IntPtr.Zero;
+            var templatePath = diagIndex + 2 < args.Length ? args[diagIndex + 2] : "";
+            var output = diagIndex + 3 < args.Length ? args[diagIndex + 3] : Path.Combine(Path.GetTempPath(), "screen-diag.txt");
+            var ok = ScreenDiag.Run(hwnd, templatePath, output, 0.8);
+            Shutdown(ok ? 0 : 1);
+            return;
+        }
+
         DispatcherUnhandledException += OnUnhandled;
         LoadEverything();
         Input.HoldThresholdMs = State.Settings.AutoHoldMs;

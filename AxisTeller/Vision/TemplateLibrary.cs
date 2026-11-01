@@ -7,14 +7,33 @@ public sealed record TemplateInfo(ActionKind Kind, string FilePath, string Name)
 /// <summary>模板库：%AppData%\EndfieldAxisTeller\templates\&lt;类型&gt;_&lt;时间戳&gt;.png</summary>
 public sealed class TemplateLibrary
 {
+    private readonly Dictionary<string, byte[]> _cache = new(StringComparer.OrdinalIgnoreCase);
+
     public string Directory { get; }
 
     public TemplateLibrary() => Directory = Path.Combine(Store.Root, "templates");
 
     public IReadOnlyList<TemplateInfo> Templates { get; private set; } = Array.Empty<TemplateInfo>();
 
+    /// <summary>读取模板 PNG 字节（带缓存，避免每帧都读磁盘）。</summary>
+    public byte[]? Bytes(TemplateInfo info)
+    {
+        if (_cache.TryGetValue(info.FilePath, out var cached)) return cached;
+        try
+        {
+            var bytes = File.ReadAllBytes(info.FilePath);
+            _cache[info.FilePath] = bytes;
+            return bytes;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public void Reload()
     {
+        _cache.Clear();
         var list = new List<TemplateInfo>();
         try
         {

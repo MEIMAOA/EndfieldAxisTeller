@@ -15,10 +15,13 @@ public partial class TemplateManagerWindow : Window
 {
     private readonly CaptureService _capture = new();
     private readonly TemplateLibrary _library = new();
+    private readonly TemplateMatcher _matcher = new();
     private readonly GraphicsCaptureItem _item;
     private readonly DispatcherTimer _renderTimer;
+    private readonly DispatcherTimer _checkTimer;
 
     private ActionKind _selectedKind = ActionKind.ComboSkill;
+    private readonly double _threshold;
     private int _frameWidth;
     private int _frameHeight;
     private byte[]? _frame;
@@ -26,21 +29,32 @@ public partial class TemplateManagerWindow : Window
     private Point _dragStart;
     private bool _dragging;
     private Rect _roiNative;
+    private double _renderScale = 1;
+    private bool _checking;
 
     private sealed record Row(string Text, TemplateInfo Info);
 
-    public TemplateManagerWindow(GraphicsCaptureItem item)
+    public TemplateManagerWindow(GraphicsCaptureItem item, double threshold = 0.8)
     {
         InitializeComponent();
         _item = item;
+        _threshold = threshold;
 
         _renderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _renderTimer.Tick += (_, _) => Render();
 
+        _checkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+        _checkTimer.Tick += (_, _) => SelfCheck();
+
         BuildKindButtons();
         ReloadTemplates();
 
-        Closed += (_, _) => _capture.Stop();
+        Closed += (_, _) =>
+        {
+            _capture.Stop();
+            _renderTimer.Stop();
+            _checkTimer.Stop();
+        };
         Loaded += (_, _) => StartCapture();
     }
 
@@ -51,6 +65,7 @@ public partial class TemplateManagerWindow : Window
         _capture.FrameArrived += OnFrame;
         _capture.Start(_item);
         _renderTimer.Start();
+        _checkTimer.Start();
         EmptyHint.Visibility = Visibility.Visible;
     }
 
@@ -71,9 +86,24 @@ public partial class TemplateManagerWindow : Window
                 _frameWidth, _frameHeight, 96, 96, PixelFormats.Bgra32, null, _frame, _frameWidth * 4);
             bitmap.Freeze();
             PreviewImage.Source = bitmap;
-            OverlayCanvas.Width = PreviewImage.ActualWidth;
-            OverlayCanvas.Height = PreviewImage.ActualHeight;
+
+            // Image 用 Uniform 拉伸，实际显示区域可能上下/左右留黑边：按内容区算缩放与偏移
+            var cw = PreviewImage.ActualWidth;
+            var ch = PreviewImage.ActualHeight;
+            if (cw <= 0 || ch <= 0) return;
+
+            _renderScale = Math.Min(cw / _frameWidth, ch / _frameHeight);
+            var rw = _frameWidth * _renderScale;
+            var rh = _frameHeight * _renderScale;
+
+            OverlayCanvas.Width = rw;
+            OverlayCanvas.Height = rh;
+            OverlayCanvas.HorizontalAlignment = HorizontalAlignment.Left;
+            OverlayCanvas.VerticalAlignment = VerticalAlignment.Top;
+            OverlayCanvas.Margin = new Thickness((cw - rw) / 2, (ch - rh) / 2, 0, 0);
+
             EmptyHint.Visibility = Visibility.Collapsed;
+            FrameInfoText.Text = $"{_frameWidth}×{_frameHeight}";
         }
         catch
         {
@@ -173,10 +203,8 @@ public partial class TemplateManagerWindow : Window
             return;
         }
 
-        var scaleX = OverlayCanvas.Width <= 0 ? 1 : _frameWidth / OverlayCanvas.Width;
-        var scaleY = OverlayCanvas.Height <= 0 ? 1 : _frameHeight / OverlayCanvas.Height;
-        _roiNative = new Rect(
-            (int)(x * scaleX), (int)(y * scaleY), (int)(w * scaleX), (int)(h * scaleY));
+        var scale = _renderScale <= 0 ? 1 : 1 / _renderScale;
+        _roiNative = new Rect(x * scale, y * scale, w * scale, h * scale);
         StatusText.Text = $"已选区域：{_roiNative.Width:0}×{_roiNative.Height:0}（原始像素）";
     }
 
@@ -200,7 +228,18 @@ public partial class TemplateManagerWindow : Window
             _selectedKind, _frame, _frameWidth, _frameHeight,
             (int)_roiNative.X, (int)_roiNative.Y, (int)_roiNative.Width, (int)_roiNative.Height);
         ReloadTemplates();
-        StatusText.Text = $"已保存模板：{System.IO.Path.GetFileName(file)}";
+
+        // 保存后立刻用当前画面自测这张模板，给出真实分数
+        try
+        {
+            var png = System.IO.File.ReadAllBytes(file);
+            var score = _matcher.Match(_frame, _frameWidth, _frameHeight, png);
+            StatusText.Text = $"已保存模板：{System.IO.Path.GetFileName(file)}　当前画面自测匹配度 {score * 100:0}%";
+        }
+        catch
+        {
+            StatusText.Text = $"已保存模板：{System.IO.Path.GetFileName(file)}";
+        }
     }
 
     private void ReloadTemplates()
@@ -224,6 +263,55 @@ public partial class TemplateManagerWindow : Window
         ReloadTemplates();
         StatusText.Text = "已删除模板。";
     }
+
+    /// <summary>定时用最新画面跑一遍当前类型的模板，显示真实匹配度。</summary>
+    private void SelfCheck()
+    {
+        if (_checking || _frame is null || _frameWidth <= 0) return;
+        var templates = _library.For(_selectedKind);
+        if (templates.Count == 0)
+        {
+            MatchScoreText.Text = $"【{ActionKinds.FullLabel(_selectedKind)}】还没有模板，先拖框保存一张。";
+            return;
+        }
+
+        _checking = true;
+        try
+        {
+            var best = -1.0;
+            var bestName = "";
+            foreach (var tpl in templates)
+            {
+                byte[] png;
+                try
+                {
+                    png = System.IO.File.ReadAllBytes(tpl.FilePath);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                var score = _matcher.Match(_frame, _frameWidth, _frameHeight, png);
+                if (score > best)
+                {
+                    best = score;
+                    bestName = tpl.Name;
+                }
+            }
+
+            MatchScoreText.Text = best < 0
+                ? "自测失败（模板文件读取不到）"
+                : $"当前画面 × 【{ActionKinds.FullLabel(_selectedKind)}】最佳匹配 {best * 100:0}%（{bestName}）\n" +
+                  $"阈值 {ThresholdHint()}，低于阈值时不会判定完成。";
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private string ThresholdHint() => $"{_threshold * 100:0}%";
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

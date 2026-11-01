@@ -2,42 +2,88 @@ using OpenCvSharp;
 
 namespace AxisTeller.Vision;
 
-/// <summary>OpenCV 模板匹配（多尺度），输入 BGRA 帧字节与模板 PNG 字节，返回最佳相似度。</summary>
+public readonly record struct MatchResult(double Score, int X, int Y, double Scale, string Template);
+
+/// <summary>OpenCV 模板匹配（多尺度 + 降采样加速），输入 BGRA 帧字节与模板 PNG 字节。</summary>
 public sealed class TemplateMatcher
 {
+    private const int MaxMatchWidth = 1280;
+
+    /// <summary>返回画面中模板的最佳相似度（0~1，越高越像）。找不到返回 -1。</summary>
     public double Match(byte[] frameBgra, int width, int height, byte[] templatePng)
+        => BestMatch(frameBgra, width, height, templatePng, out _);
+
+    public double BestMatch(byte[] frameBgra, int width, int height, byte[] templatePng, out MatchResult best)
     {
+        best = default;
         try
         {
-            using var frame = ToMat(frameBgra, width, height);
-            if (frame.Empty()) return -1;
-            using var frameBgr = new Mat();
-            Cv2.CvtColor(frame, frameBgr, ColorConversionCodes.BGRA2BGR);
+            using var frameFull = ToMat(frameBgra, width, height);
+            if (frameFull.Empty()) return -1;
 
-            using var tpl = Cv2.ImDecode(templatePng, ImreadModes.Color);
-            if (tpl.Empty()) return -1;
+            using var frameBgrFull = new Mat();
+            Cv2.CvtColor(frameFull, frameBgrFull, ColorConversionCodes.BGRA2BGR);
 
-            var best = -1.0;
-            for (var scale = 0.7; scale <= 1.3 + 1e-6; scale += 0.05)
+            // 降采样到 1280 宽以内再匹配，速度提升 4 倍左右，对小图标精度影响很小
+            var scale = Math.Min(1.0, MaxMatchWidth / (double)Math.Max(1, width));
+            using var frame = new Mat();
+            if (scale < 0.999)
+                Cv2.Resize(frameBgrFull, frame, new Size((int)(width * scale), (int)(height * scale)), interpolation: InterpolationFlags.Area);
+            else
+                frameBgrFull.CopyTo(frame);
+
+            using var tplFull = Cv2.ImDecode(templatePng, ImreadModes.Color);
+            if (tplFull.Empty()) return -1;
+
+            using var tplBase = new Mat();
+            if (scale < 0.999)
+                Cv2.Resize(tplFull, tplBase, new Size((int)Math.Round(tplFull.Width * scale), (int)Math.Round(tplFull.Height * scale)), interpolation: InterpolationFlags.Area);
+            else
+                tplFull.CopyTo(tplBase);
+
+            var bestScore = -1.0;
+            MatchResult bestResult = default;
+            for (var s = 0.75; s <= 1.25 + 1e-6; s += 0.05)
             {
-                var tw = Math.Max(8, (int)Math.Round(tpl.Width * scale));
-                var th = Math.Max(8, (int)Math.Round(tpl.Height * scale));
-                if (tw >= frameBgr.Width || th >= frameBgr.Height) continue;
+                var tw = (int)Math.Round(tplBase.Width * s);
+                var th = (int)Math.Round(tplBase.Height * s);
+                if (tw < 4 || th < 4 || tw >= frame.Width || th >= frame.Height) continue;
 
                 using var resized = new Mat();
-                Cv2.Resize(tpl, resized, new Size(tw, th));
-
+                Cv2.Resize(tplBase, resized, new Size(tw, th));
                 using var result = new Mat();
-                Cv2.MatchTemplate(frameBgr, resized, result, TemplateMatchModes.CCoeffNormed);
-                Cv2.MinMaxLoc(result, out _, out var maxVal, out _, out _);
-                if (maxVal > best) best = maxVal;
+                Cv2.MatchTemplate(frame, resized, result, TemplateMatchModes.CCoeffNormed);
+                Cv2.MinMaxLoc(result, out _, out var maxVal, out _, out var maxLoc);
+                if (maxVal > bestScore)
+                {
+                    bestScore = maxVal;
+                    bestResult = new MatchResult(maxVal, (int)(maxLoc.X / scale), (int)(maxLoc.Y / scale), s * scale, "");
+                }
             }
 
-            return best;
+            best = bestResult;
+            return bestScore;
         }
         catch
         {
             return -1;
+        }
+    }
+
+    /// <summary>整帧平均亮度（0~255），用于判断是不是抓到黑屏。</summary>
+    public static double MeanBrightness(byte[] bgra, int width, int height)
+    {
+        try
+        {
+            using var mat = ToMat(bgra, width, height);
+            if (mat.Empty()) return 0;
+            using var gray = new Mat();
+            Cv2.CvtColor(mat, gray, ColorConversionCodes.BGRA2GRAY);
+            return Cv2.Mean(gray).Val0;
+        }
+        catch
+        {
+            return 0;
         }
     }
 

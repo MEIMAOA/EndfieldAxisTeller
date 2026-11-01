@@ -64,7 +64,7 @@ public partial class SettingsWindow : Window
         if (_captureKind is null)
             AutoStatus.Text = _draft.DetectSource switch
             {
-                "screen" => "画面识别：选择游戏窗口并配置模板后，提示窗运行时匹配到画面就自动推进。",
+                "screen" => $"画面识别：已存 {CountTemplates()} 张模板。提示窗运行时匹配到当前动作的画面特征就自动推进。",
                 "keys" => "按键识别：提示窗运行时，按出与当前步骤匹配的操作会自动推进。",
                 _ => "已关闭自动检测，仍可用热键手动推进。",
             };
@@ -75,7 +75,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.2.1 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.2.2 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -97,6 +97,20 @@ public partial class SettingsWindow : Window
         _draft.DetectSource = source;
         _draft.AutoDetect = source != "off";
         RefreshUi();
+    }
+
+    private static int CountTemplates()
+    {
+        try
+        {
+            var lib = new AxisTeller.Vision.TemplateLibrary();
+            lib.Reload();
+            return lib.Templates.Count;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     private void AutoMode_Click(object sender, RoutedEventArgs e)
@@ -137,7 +151,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var manager = new TemplateManagerWindow(App.CaptureItem) { Owner = this };
+        var manager = new TemplateManagerWindow(App.CaptureItem, _draft.ScreenMatchThreshold) { Owner = this };
         manager.ShowDialog();
     }
 

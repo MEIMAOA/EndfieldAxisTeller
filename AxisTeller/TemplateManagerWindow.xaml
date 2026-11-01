@@ -29,6 +29,8 @@
                     </StackPanel>
                     <TextBlock x:Name="CaptureStatusText" Text="" Style="{StaticResource Mono}" FontSize="9"
                                VerticalAlignment="Center" Margin="18,2,0,0" />
+                    <TextBlock x:Name="FrameInfoText" Text="" Style="{StaticResource Mono}" FontSize="9"
+                               VerticalAlignment="Center" Margin="12,2,0,0" />
                 </StackPanel>
                 <Button Content="✕" Style="{StaticResource SquareIconButton}" HorizontalAlignment="Right"
                         VerticalAlignment="Center" Margin="0,0,12,0" Click="Close_Click" />
@@ -89,6 +91,11 @@
                     <Button x:Name="DeleteButton" Content="删除选中模板" Style="{StaticResource OutlineButton}"
                             Foreground="{StaticResource Danger}" BorderBrush="{StaticResource Danger}"
                             Click="Delete_Click" Margin="0,10,0,0" />
+
+                    <TextBlock Text="// SELF CHECK" Style="{StaticResource Mono}" FontSize="9" Margin="0,18,0,0" />
+                    <TextBlock Text="匹配自测" Style="{StaticResource SectionTitle}" Margin="0,2,0,0" />
+                    <TextBlock x:Name="MatchScoreText" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Margin="0,6,0,0" Text="等待画面…" />
                 </StackPanel>
             </Grid>
 

@@ -10,7 +10,7 @@
     <RootNamespace>AxisTeller</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
     <Product>终末地轴提示器</Product>
     <AssemblyTitle>终末地轴提示器</AssemblyTitle>
     <Description>Arknights: Endfield rotation prompter — 多轴多循环，按键推进 / 画面识别自动检测，数据来自森空岛</Description>
