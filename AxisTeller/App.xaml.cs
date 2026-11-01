@@ -21,6 +21,9 @@ public partial class App : Application
     /// <summary>用户用系统捕获选择器选中的游戏窗口（会话内保持有效）。</summary>
     public static GraphicsCaptureItem? CaptureItem { get; set; }
 
+    /// <summary>选中的游戏窗口句柄（用于重启检测 / 重新创建捕获对象）。</summary>
+    public static IntPtr CaptureWindowHandle { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);

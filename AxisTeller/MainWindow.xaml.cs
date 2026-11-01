@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using AxisTeller.Capture;
 using Microsoft.Win32;
 
 namespace AxisTeller;
@@ -487,7 +488,13 @@ public partial class MainWindow : Window
     }
 
     private void OnScreenError(string message) =>
-        Dispatcher.BeginInvoke(() => SetStatus("画面识别：" + message));
+        Dispatcher.BeginInvoke(() =>
+        {
+            // 捕获对象失效（比如游戏窗口关了）时清掉，下次自动重新找窗口
+            App.CaptureItem = null;
+            App.CaptureWindowHandle = IntPtr.Zero;
+            SetStatus("画面识别：" + message);
+        });
 
     private void LoopsMinus_Click(object sender, RoutedEventArgs e)
     {
@@ -542,9 +549,10 @@ public partial class MainWindow : Window
 
         if (State.Settings.DetectSource == "screen")
         {
+            EnsureCaptureItem();
             if (App.CaptureItem is null)
             {
-                SetStatus("画面识别：还没选择游戏窗口，去「设置 → 自动检测」里选一下。");
+                SetStatus("画面识别：没找到游戏窗口，请打开游戏，或去「设置 → 自动检测」里手动选择窗口。");
                 return;
             }
 
@@ -554,6 +562,26 @@ public partial class MainWindow : Window
         }
 
         UpdateScreenTarget();
+    }
+
+    /// <summary>没有捕获对象时，自动按进程名/标题找《终末地》窗口并创建捕获。</summary>
+    private void EnsureCaptureItem()
+    {
+        if (App.CaptureItem is not null) return;
+
+        var info = WindowEnumerator.FindGameWindow() ?? WindowEnumerator.FindByTitle(State.Settings.CaptureWindowTitle);
+        if (info is null) return;
+
+        try
+        {
+            App.CaptureItem = Composition.WindowsRuntimeHelpers.CaptureHelper.CreateItemForWindow(info.Handle);
+            App.CaptureWindowHandle = info.Handle;
+            State.Settings.CaptureWindowTitle = info.Title;
+        }
+        catch
+        {
+            // 创建失败时保持 null，由调用方提示用户手动选择
+        }
     }
 
     private void UpdateScreenTarget() =>

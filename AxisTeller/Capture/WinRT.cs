@@ -106,7 +106,8 @@ public static class CaptureHelper
 
     public static void SetWindow(this GraphicsCapturePicker picker, IntPtr hwnd)
     {
-        var interop = (IInitializeWithWindow)(object)picker;
+        // CsWinRT 投影对象不能直接 (T)(object) 强转，需要走 As<T>() 做 QI。
+        var interop = picker.As<IInitializeWithWindow>();
         interop.Initialize(hwnd);
     }
 

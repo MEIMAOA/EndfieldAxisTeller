@@ -75,7 +75,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.2.0 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.2.1 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -105,27 +105,27 @@ public partial class SettingsWindow : Window
         RefreshUi();
     }
 
-    private async void PickWindow_Click(object sender, RoutedEventArgs e)
+    private void PickWindow_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var picker = new GraphicsCapturePicker();
-            picker.SetWindow(new WindowInteropHelper(this).Handle);
-            var item = await picker.PickSingleItemAsync();
-            if (item is null)
+            var picker = new WindowPickerWindow { Owner = this };
+            if (picker.ShowDialog() != true || picker.SelectedWindow is not { } info)
             {
                 AutoStatus.Text = "已取消选择窗口。";
                 return;
             }
 
+            var item = CaptureHelper.CreateItemForWindow(info.Handle);
             App.CaptureItem = item;
-            _draft.CaptureWindowTitle = item.DisplayName;
-            AutoStatus.Text = $"已选择捕获窗口：{item.DisplayName}";
+            App.CaptureWindowHandle = info.Handle;
+            _draft.CaptureWindowTitle = info.Title;
+            AutoStatus.Text = $"已选择捕获窗口：{info.Title}（{info.ProcessName}）";
             RefreshUi();
         }
         catch (Exception ex)
         {
-            AutoStatus.Text = "选择窗口失败：" + ex.Message;
+            AutoStatus.Text = "创建捕获失败：" + ex.Message;
         }
     }
 
