@@ -114,6 +114,7 @@ public partial class MainWindow : Window
         State.Settings.LastAxisId = axis.Id;
         _engine.Attach(axis, State.Settings.LoopInfinite);
         _overlay?.Refresh();
+        UpdateScreenTarget();
         UpdateStatusForStep();
     }
 
@@ -449,7 +450,7 @@ public partial class MainWindow : Window
     private void OnInputDetected(string binding)
     {
         var settings = State.Settings;
-        if (!settings.AutoDetect) return;
+        if (!settings.AutoDetect || settings.DetectSource != "keys") return;
         if (_overlay is not { IsVisible: true }) return;
 
         var detected = ActionKinds.MatchInput(binding, settings);
@@ -459,11 +460,34 @@ public partial class MainWindow : Window
         if (step is null) return;
         if (!ActionKinds.IsCurrentStepCompleted(step, detected.Value, settings.AutoDetectMode)) return;
 
-        _engine.Next(settings.LoopInfinite);
-        _overlay.Refresh();
-        _overlay.ShowDetected(ActionKinds.FullLabel(detected.Value));
-        UpdateStatusForStep();
+        AdvanceByDetect(ActionKinds.FullLabel(detected.Value));
     }
+
+    private void AdvanceByDetect(string label)
+    {
+        if (_overlay is not { IsVisible: true }) return;
+        _engine.Next(State.Settings.LoopInfinite);
+        _overlay.Refresh();
+        _overlay.ShowDetected(label);
+        UpdateStatusForStep();
+        UpdateScreenTarget();
+    }
+
+    private void OnScreenDetected(ActionKind kind)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_overlay is not { IsVisible: true }) return;
+            if (State.Settings.DetectSource != "screen") return;
+            var step = _engine.CurrentStep;
+            if (step is null) return;
+            if (step.ResolvedKind != ActionKind.Unknown && step.ResolvedKind != kind) return;
+            AdvanceByDetect("画面 · " + ActionKinds.FullLabel(kind));
+        });
+    }
+
+    private void OnScreenError(string message) =>
+        Dispatcher.BeginInvoke(() => SetStatus("画面识别：" + message));
 
     private void LoopsMinus_Click(object sender, RoutedEventArgs e)
     {
@@ -505,8 +529,35 @@ public partial class MainWindow : Window
         _overlay.Refresh();
         _overlay.Show();
         Hide();
-        SetStatus("提示窗已打开：按键推进动作，F6 显示/隐藏");
+        ConfigureDetection();
+        SetStatus("提示窗已打开：" +
+                  (State.Settings.DetectSource == "screen" ? "画面识别中（匹配到当前动作自动推进）" : "按键推进动作，F6 显示/隐藏"));
     }
+
+    private void ConfigureDetection()
+    {
+        App.Screen.Detected -= OnScreenDetected;
+        App.Screen.Error -= OnScreenError;
+        App.Screen.Stop();
+
+        if (State.Settings.DetectSource == "screen")
+        {
+            if (App.CaptureItem is null)
+            {
+                SetStatus("画面识别：还没选择游戏窗口，去「设置 → 自动检测」里选一下。");
+                return;
+            }
+
+            App.Screen.Detected += OnScreenDetected;
+            App.Screen.Error += OnScreenError;
+            App.Screen.Start(App.CaptureItem, State.Settings.ScreenMatchThreshold);
+        }
+
+        UpdateScreenTarget();
+    }
+
+    private void UpdateScreenTarget() =>
+        App.Screen.SetTarget(_engine.CurrentStep?.ResolvedKind ?? ActionKind.Unknown);
 
     private OverlayWindow CreateOverlay()
     {
@@ -526,6 +577,7 @@ public partial class MainWindow : Window
         };
         overlay.Closed += (_, _) =>
         {
+            App.Screen.Stop();
             _overlay = null;
             if (_exiting) return;
             Show();
@@ -558,6 +610,7 @@ public partial class MainWindow : Window
         }
 
         _overlay?.Refresh();
+        UpdateScreenTarget();
         UpdateStatusForStep();
     }
 
@@ -565,6 +618,7 @@ public partial class MainWindow : Window
     {
         if (_overlay is { IsVisible: true })
         {
+            App.Screen.Stop();
             _overlay.Hide();
             if (!IsVisible) Show();
             return;

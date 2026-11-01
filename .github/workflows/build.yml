@@ -25,7 +25,7 @@ jobs:
       - name: Self test
         shell: pwsh
         run: |
-          $exe = "AxisTeller/bin/Release/net10.0-windows/AxisTeller.exe"
+          $exe = "AxisTeller/bin/Release/net10.0-windows10.0.19041.0/AxisTeller.exe"
           $p = Start-Process -FilePath $exe -ArgumentList @('--selftest', 'selftest-report.txt') -Wait -PassThru
           Get-Content selftest-report.txt
           if ($p.ExitCode -ne 0) { throw "self test failed (exit $($p.ExitCode))" }

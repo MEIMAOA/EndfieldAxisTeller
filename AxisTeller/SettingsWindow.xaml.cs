@@ -3,7 +3,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using Composition.WindowsRuntimeHelpers;
+using Windows.Graphics.Capture;
 
 namespace AxisTeller;
 
@@ -39,9 +42,16 @@ public partial class SettingsWindow : Window
         LoopInfiniteCheck.IsChecked = _draft.LoopInfinite;
         TopmostCheck.IsChecked = _draft.Topmost;
 
-        AutoDetectCheck.IsChecked = _draft.AutoDetect;
         ApplyModeStyle(AutoModeMatchButton, !string.Equals(_draft.AutoDetectMode, "any", StringComparison.OrdinalIgnoreCase));
         ApplyModeStyle(AutoModeAnyButton, string.Equals(_draft.AutoDetectMode, "any", StringComparison.OrdinalIgnoreCase));
+
+        ApplyModeStyle(SourceKeysButton, _draft.DetectSource == "keys");
+        ApplyModeStyle(SourceScreenButton, _draft.DetectSource == "screen");
+        ApplyModeStyle(SourceOffButton, _draft.DetectSource == "off");
+        CaptureWindowText.Text = string.IsNullOrWhiteSpace(_draft.CaptureWindowTitle)
+            ? "未选择游戏窗口"
+            : "捕获：" + _draft.CaptureWindowTitle;
+        ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
 
         BindNormalButton.Content = ActionKinds.BindingLabel(_draft.AutoBindNormal);
         BindHeavyButton.Content = ActionKinds.BindingLabel(_draft.AutoBindHeavy);
@@ -52,9 +62,12 @@ public partial class SettingsWindow : Window
         BindSwitchButton.Content = ActionKinds.BindingLabel(_draft.AutoBindSwitch);
         HoldText.Text = $"{_draft.AutoHoldMs}ms";
         if (_captureKind is null)
-            AutoStatus.Text = _draft.AutoDetect
-                ? "已开启：提示窗运行时，检测到匹配操作会自动推进。"
-                : "未开启：仍可用热键手动推进。";
+            AutoStatus.Text = _draft.DetectSource switch
+            {
+                "screen" => "画面识别：选择游戏窗口并配置模板后，提示窗运行时匹配到画面就自动推进。",
+                "keys" => "按键识别：提示窗运行时，按出与当前步骤匹配的操作会自动推进。",
+                _ => "已关闭自动检测，仍可用热键手动推进。",
+            };
 
         TokenBox.Text = _draft.SklandToken;
         UserText.Text = string.IsNullOrWhiteSpace(_draft.SklandUserName)
@@ -62,7 +75,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.1.0 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.2.0 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -78,18 +91,66 @@ public partial class SettingsWindow : Window
 
     // ============================== 自动检测 ==============================
 
-    private void AutoDetect_Click(object sender, RoutedEventArgs e)
+    private void DetectSource_Click(object sender, RoutedEventArgs e)
     {
-        _draft.AutoDetect = AutoDetectCheck.IsChecked == true;
-        AutoStatus.Text = _draft.AutoDetect
-            ? "已开启：提示窗运行时，检测到匹配操作会自动推进。"
-            : "未开启：仍可用热键手动推进。";
+        var source = (sender as FrameworkElement)?.Tag?.ToString() ?? "off";
+        _draft.DetectSource = source;
+        _draft.AutoDetect = source != "off";
+        RefreshUi();
     }
 
     private void AutoMode_Click(object sender, RoutedEventArgs e)
     {
         _draft.AutoDetectMode = (sender as FrameworkElement)?.Tag?.ToString() == "any" ? "any" : "match";
         RefreshUi();
+    }
+
+    private async void PickWindow_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new GraphicsCapturePicker();
+            picker.SetWindow(new WindowInteropHelper(this).Handle);
+            var item = await picker.PickSingleItemAsync();
+            if (item is null)
+            {
+                AutoStatus.Text = "已取消选择窗口。";
+                return;
+            }
+
+            App.CaptureItem = item;
+            _draft.CaptureWindowTitle = item.DisplayName;
+            AutoStatus.Text = $"已选择捕获窗口：{item.DisplayName}";
+            RefreshUi();
+        }
+        catch (Exception ex)
+        {
+            AutoStatus.Text = "选择窗口失败：" + ex.Message;
+        }
+    }
+
+    private void ManageTemplates_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.CaptureItem is null)
+        {
+            AutoStatus.Text = "请先「选择游戏窗口」，再管理模板。";
+            return;
+        }
+
+        var manager = new TemplateManagerWindow(App.CaptureItem) { Owner = this };
+        manager.ShowDialog();
+    }
+
+    private void ThresholdMinus_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.ScreenMatchThreshold -= 0.05;
+        ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
+    }
+
+    private void ThresholdPlus_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.ScreenMatchThreshold += 0.05;
+        ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
     }
 
     private void BindCapture_Click(object sender, RoutedEventArgs e)

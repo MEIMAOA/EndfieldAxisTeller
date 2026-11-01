@@ -227,6 +227,9 @@ public sealed class AppSettings : ObservableObject
     private string _autoBindDodge = "Space";
     private string _autoBindSwitch = "1";
     private int _autoHoldMs = 350;
+    private string _detectSource = "keys";
+    private double _screenMatchThreshold = 0.80;
+    private string _captureWindowTitle = "";
 
     public string NextKey { get => _nextKey; set => Set(ref _nextKey, value); }
     public string PrevKey { get => _prevKey; set => Set(ref _prevKey, value); }
@@ -266,6 +269,15 @@ public sealed class AppSettings : ObservableObject
     /// <summary>鼠标左键按住超过多少毫秒算「重攻」。</summary>
     public int AutoHoldMs { get => _autoHoldMs; set => Set(ref _autoHoldMs, Math.Clamp(value, 120, 1200)); }
 
+    /// <summary>检测来源：keys = 键鼠操作；screen = 画面模板匹配；off = 关闭。</summary>
+    public string DetectSource { get => _detectSource; set => Set(ref _detectSource, value); }
+
+    /// <summary>画面模板匹配阈值（0~1，越高越严格）。</summary>
+    public double ScreenMatchThreshold { get => _screenMatchThreshold; set => Set(ref _screenMatchThreshold, Math.Clamp(value, 0.4, 0.99)); }
+
+    /// <summary>选择的捕获窗口标题（仅显示用；实际捕获对象保存在内存里）。</summary>
+    public string CaptureWindowTitle { get => _captureWindowTitle; set => Set(ref _captureWindowTitle, value); }
+
     public double OverlayLeft { get; set; } = double.NaN;
     public double OverlayTop { get; set; } = double.NaN;
     public double OverlayWidth { get; set; } = 520;
@@ -302,6 +314,9 @@ public sealed class AppSettings : ObservableObject
         AutoBindDodge = other.AutoBindDodge;
         AutoBindSwitch = other.AutoBindSwitch;
         AutoHoldMs = other.AutoHoldMs;
+        DetectSource = other.DetectSource;
+        ScreenMatchThreshold = other.ScreenMatchThreshold;
+        CaptureWindowTitle = other.CaptureWindowTitle;
         OverlayLeft = other.OverlayLeft;
         OverlayTop = other.OverlayTop;
         OverlayWidth = other.OverlayWidth;

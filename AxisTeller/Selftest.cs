@@ -30,6 +30,7 @@ public static class Selftest
         TestTokenNormalize();
         TestSeed();
         TestActionDetection();
+        TestScreenVision();
 
         var summary = $"\n{_passed} passed, {_failed} failed";
         Log.AppendLine(summary);
@@ -311,6 +312,87 @@ public static class Selftest
         Check("自动检测设置可存档",
             clone.AutoDetect && clone.AutoBindCombo == "Key:R" && clone.AutoHoldMs == 500);
         Check("绑定文字规范化", ActionKinds.NormalizeBinding("Key:Space") == "Space");
+    }
+
+    private static void TestScreenVision()
+    {
+        var width = 240;
+        var height = 180;
+        var frame = new byte[width * height * 4];
+        // 带渐变、有纹理的背景（避免纯色导致 NCC 退化）
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var o = (y * width + x) * 4;
+            var v = (byte)(30 + (x * 3 + y * 2) % 200);
+            frame[o] = v;
+            frame[o + 1] = (byte)(v + 15);
+            frame[o + 2] = (byte)(v + 30);
+            frame[o + 3] = 255;
+        }
+
+        void Fill(int x, int y, int w, int h, byte b, byte g, byte r)
+        {
+            for (var py = y; py < y + h; py++)
+            for (var px = x; px < x + w; px++)
+            {
+                var o = (py * width + px) * 4;
+                frame[o] = b;
+                frame[o + 1] = g;
+                frame[o + 2] = r;
+            }
+        }
+
+        Fill(30, 30, 48, 48, 255, 140, 10);
+
+        var matcher = new AxisTeller.Vision.TemplateMatcher();
+        var tplPng = AxisTeller.Vision.TemplateMatcher.CropToPng(frame, width, height, 30, 30, 48, 48);
+        Check("模板裁剪出 PNG", tplPng.Length > 100);
+        var score = matcher.Match(frame, width, height, tplPng);
+        Check("模板自匹配得分接近 1", score >= 0.9, $"score={score:F3}");
+
+        // 画面里没有的品红/黑棋盘格作为“不相关模板”（有纹理，避免 NCC 退化）
+        var foreign = new byte[20 * 20 * 4];
+        for (var y = 0; y < 20; y++)
+        for (var x = 0; x < 20; x++)
+        {
+            var o = (y * 20 + x) * 4;
+            var mag = ((x / 5) + (y / 5)) % 2 == 0;
+            foreign[o] = 255;
+            foreign[o + 1] = 0;
+            foreign[o + 2] = mag ? (byte)255 : (byte)0;
+            foreign[o + 3] = 255;
+        }
+
+        var foreignPng = AxisTeller.Vision.TemplateMatcher.CropToPng(foreign, 20, 20, 0, 0, 20, 20);
+        var foreignScore = matcher.Match(frame, width, height, foreignPng);
+        Check("无关模板得分低于图标模板", foreignScore < score, $"foreign={foreignScore:F3} icon={score:F3}");
+
+        var temp = Path.Combine(Path.GetTempPath(), "axis-teller-tpl-" + Guid.NewGuid().ToString("N"));
+        var oldRoot = Store.Root;
+        try
+        {
+            Store.RedirectTo(temp);
+            var lib = new AxisTeller.Vision.TemplateLibrary();
+            var saved = lib.Save(ActionKind.ComboSkill, frame, width, height, 30, 30, 48, 48);
+            Check("模板库保存文件", File.Exists(saved));
+            lib.Reload();
+            Check("模板库按类型读取", lib.For(ActionKind.ComboSkill).Count == 1);
+            lib.Delete(saved);
+            Check("模板库删除", lib.For(ActionKind.ComboSkill).Count == 0);
+        }
+        finally
+        {
+            Store.RedirectTo(oldRoot);
+            try
+            {
+                if (Directory.Exists(temp)) Directory.Delete(temp, true);
+            }
+            catch
+            {
+                // 忽略
+            }
+        }
     }
 
     private static void TestSeed()

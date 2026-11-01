@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using Windows.Graphics.Capture;
 
 namespace AxisTeller;
 
@@ -14,6 +15,12 @@ public partial class App : Application
     /// <summary>全局键鼠监听（自动检测动作 + 设置里捕获按键）。</summary>
     public static InputMonitor Input { get; } = new();
 
+    /// <summary>画面检测（Windows Graphics Capture + 模板匹配）。</summary>
+    public static ScreenDetector Screen { get; } = new();
+
+    /// <summary>用户用系统捕获选择器选中的游戏窗口（会话内保持有效）。</summary>
+    public static GraphicsCaptureItem? CaptureItem { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -24,6 +31,18 @@ public partial class App : Application
         {
             var output = selfTestIndex + 1 < args.Length ? args[selfTestIndex + 1] : Path.Combine(Path.GetTempPath(), "axis-teller-selftest.txt");
             var ok = Selftest.Run(output);
+            Shutdown(ok ? 0 : 1);
+            return;
+        }
+
+        var captureIndex = Array.FindIndex(args, a => string.Equals(a, "--capture-smoke", StringComparison.OrdinalIgnoreCase));
+        if (captureIndex >= 0)
+        {
+            var hwnd = captureIndex + 1 < args.Length && long.TryParse(args[captureIndex + 1], out var h)
+                ? new IntPtr(h)
+                : IntPtr.Zero;
+            var output = captureIndex + 2 < args.Length ? args[captureIndex + 2] : Path.Combine(Path.GetTempPath(), "capture-smoke.png");
+            var ok = CaptureSmoke.Run(hwnd, output);
             Shutdown(ok ? 0 : 1);
             return;
         }
@@ -83,6 +102,7 @@ public partial class App : Application
         try
         {
             Input.Stop();
+            Screen.Stop();
             if (MainWin is not null) SaveAll();
         }
         catch
