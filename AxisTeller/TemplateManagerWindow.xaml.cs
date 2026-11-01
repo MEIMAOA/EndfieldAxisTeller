@@ -31,6 +31,13 @@ public partial class TemplateManagerWindow : Window
     private Rectangle? _selection;
     private Point _dragStart;
     private bool _dragging;
+    private SamplingHudWindow? _hud;
+    private string _hudFeedback = "";
+    private bool _darkWarning;
+    private DateTime _lastBrightnessCheck = DateTime.MinValue;
+
+    /// <summary>是否处于「采样模式」（采样时窗口收起，游戏里按 F1~F4 操作）。</summary>
+    public bool IsSampling { get; private set; }
     private Rect _roiNative;
     private RoiMapper.Fit _fit;
     private bool _checking;
@@ -81,6 +88,14 @@ public partial class TemplateManagerWindow : Window
         _frameWidth = width;
         _frameHeight = height;
         _frame = bgra;
+
+        // 采样模式下顺便检查画面是不是全黑（全屏独占抓不到），提示玩家
+        if (IsSampling && (DateTime.UtcNow - _lastBrightnessCheck).TotalSeconds > 1.5)
+        {
+            _lastBrightnessCheck = DateTime.UtcNow;
+            _darkWarning = TemplateMatcher.MeanBrightness(bgra, width, height) < 4;
+            UpdateHud();
+        }
     }
 
     private void Render()
@@ -99,12 +114,16 @@ public partial class TemplateManagerWindow : Window
             var ch = PreviewImage.ActualHeight;
             if (cw <= 0 || ch <= 0) return;
 
-            _fit = RoiMapper.Compute(_frameWidth, _frameHeight, cw, ch);
-            OverlayCanvas.Width = _fit.Width;
-            OverlayCanvas.Height = _fit.Height;
-            OverlayCanvas.HorizontalAlignment = HorizontalAlignment.Left;
-            OverlayCanvas.VerticalAlignment = VerticalAlignment.Top;
-            OverlayCanvas.Margin = new Thickness(_fit.OffsetX, _fit.OffsetY, 0, 0);
+            var fit = RoiMapper.Compute(_frameWidth, _frameHeight, cw, ch);
+            if (!_dragging)
+            {
+                _fit = fit;
+                OverlayCanvas.Width = fit.Width;
+                OverlayCanvas.Height = fit.Height;
+                OverlayCanvas.HorizontalAlignment = HorizontalAlignment.Left;
+                OverlayCanvas.VerticalAlignment = VerticalAlignment.Top;
+                OverlayCanvas.Margin = new Thickness(fit.OffsetX, fit.OffsetY, 0, 0);
+            }
 
             EmptyHint.Visibility = Visibility.Collapsed;
             FrameInfoText.Text = $"{_frameWidth}×{_frameHeight}";
@@ -156,7 +175,8 @@ public partial class TemplateManagerWindow : Window
 
     private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        _dragStart = e.GetPosition(OverlayCanvas);
+        // 拖框期间暂停重排，否则 Canvas 被重新布局会导致鼠标手势丢失（这就是「拖了没反应」的根因）
+        _dragStart = ClampToCanvas(e.GetPosition(OverlayCanvas));
         _dragging = true;
 
         if (_selection is null)
@@ -175,12 +195,18 @@ public partial class TemplateManagerWindow : Window
         Canvas.SetTop(_selection, _dragStart.Y);
         _selection.Width = 0;
         _selection.Height = 0;
+
+        // 捕获鼠标：拖出画布边界也能收到 MouseUp
+        OverlayCanvas.CaptureMouse();
+        e.Handled = true;
+        StatusText.Text = "拖拽中…松开鼠标确认选区（Esc 取消）";
     }
 
     private void Canvas_MouseMove(object sender, MouseEventArgs e)
     {
         if (!_dragging || _selection is null) return;
-        var p = e.GetPosition(OverlayCanvas);
+
+        var p = ClampToCanvas(e.GetPosition(OverlayCanvas));
         var x = Math.Min(_dragStart.X, p.X);
         var y = Math.Min(_dragStart.Y, p.Y);
         var w = Math.Abs(p.X - _dragStart.X);
@@ -189,29 +215,53 @@ public partial class TemplateManagerWindow : Window
         Canvas.SetTop(_selection, y);
         _selection.Width = w;
         _selection.Height = h;
+        e.Handled = true;
     }
 
     private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (!_dragging) return;
+        FinishDrag(ClampToCanvas(e.GetPosition(OverlayCanvas)));
+        e.Handled = true;
+    }
+
+    private void OverlayCanvas_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        // 万一系统把捕获抢走（切窗口等），也把当前选区落定，避免「拖完没反应」
+        if (_dragging) FinishDrag(ClampToCanvas(Mouse.GetPosition(OverlayCanvas)));
+    }
+
+    private void FinishDrag(Point end)
+    {
         _dragging = false;
+        if (OverlayCanvas.IsMouseCaptured) OverlayCanvas.ReleaseMouseCapture();
 
-        var p = e.GetPosition(OverlayCanvas);
-        var x = Math.Min(_dragStart.X, p.X);
-        var y = Math.Min(_dragStart.Y, p.Y);
-        var w = Math.Abs(p.X - _dragStart.X);
-        var h = Math.Abs(p.Y - _dragStart.Y);
+        var x = Math.Min(_dragStart.X, end.X);
+        var y = Math.Min(_dragStart.Y, end.Y);
+        var w = Math.Abs(end.X - _dragStart.X);
+        var h = Math.Abs(end.Y - _dragStart.Y);
 
-        if (w < 6 || h < 6 || _frame is null)
+        if (w < 8 || h < 8 || _frame is null)
         {
-            StatusText.Text = "选择区域太小，请重新拖。";
+            StatusText.Text = "选区太小，请重新拖（按住左键拖出一个矩形）。";
             return;
         }
 
         var mapped = RoiMapper.Map(x + _fit.OffsetX, y + _fit.OffsetY, w, h, _fit, _frameWidth, _frameHeight);
         _roiNative = new Rect(mapped.X, mapped.Y, mapped.Width, mapped.Height);
-        StatusText.Text = $"已选区域：{mapped.X},{mapped.Y} {mapped.Width}×{mapped.Height}（原始像素）";
+        SaveButton.IsEnabled = true;
+        StatusText.Text = $"✔ 选区已确认：{mapped.X},{mapped.Y} {mapped.Width}×{mapped.Height} 原始像素 —— 可以点「保存为模板 / 采集样本」，或按 Enter/F5 直接保存";
     }
+
+    private Point ClampToCanvas(Point p)
+    {
+        var w = Math.Max(1, OverlayCanvas.ActualWidth);
+        var h = Math.Max(1, OverlayCanvas.ActualHeight);
+        return new Point(Math.Clamp(p.X, 0, w), Math.Clamp(p.Y, 0, h));
+    }
+
+    private static string RoiSummary(Rect roi) =>
+        roi.Width > 0 ? $"{roi.X:0},{roi.Y:0} {roi.Width:0}×{roi.Height:0}" : "未选择";
 
     // ================= 模板操作 =================
 
@@ -230,7 +280,7 @@ public partial class TemplateManagerWindow : Window
 
         if (_roiNative.Width < 6 || _roiNative.Height < 6)
         {
-            StatusText.Text = $"{via}保存：请先在左侧预览上拖出要识别的区域。";
+            StatusText.Text = $"{via}保存：请先在左侧预览上按住左键拖出一个矩形（松开即确认）。";
             return;
         }
 
@@ -331,6 +381,19 @@ public partial class TemplateManagerWindow : Window
             SaveFromHotkey();
             e.Handled = true;
         }
+        else if (e.Key == Key.Enter)
+        {
+            SaveFromHotkey();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape && _dragging)
+        {
+            _dragging = false;
+            if (OverlayCanvas.IsMouseCaptured) OverlayCanvas.ReleaseMouseCapture();
+            if (_selection is not null) { _selection.Width = 0; _selection.Height = 0; }
+            StatusText.Text = "已取消拖拽。";
+            e.Handled = true;
+        }
         else if (e.Key == Key.Delete)
         {
             Delete_Click(this, new RoutedEventArgs());
@@ -396,7 +459,89 @@ public partial class TemplateManagerWindow : Window
             : $"已采集{(positive ? "正" : "负")}样本：{System.IO.Path.GetFileName(file)}";
     }
 
-    private async void AiTrain_Click(object sender, RoutedEventArgs e)
+    private void StartSampling_Click(object sender, RoutedEventArgs e) => StartSampling();
+
+    private void StartSampling()
+    {
+        if (_frame is null || _frameWidth <= 0)
+        {
+            StatusText.Text = "还没有画面，等预览出现后再开始采样。";
+            return;
+        }
+
+        if (_roiNative.Width < 8 || _roiNative.Height < 8)
+        {
+            StatusText.Text = "请先在预览上拖出识别区域（松开鼠标即确认），再开始采样。";
+            return;
+        }
+
+        IsSampling = true;
+        _hudFeedback = "切回游戏，按 F1 采正样本";
+        _hud = new SamplingHudWindow(this);
+        _hud.Show();
+        UpdateHud();
+        Hide();
+        App.RefreshHotkeys();
+    }
+
+    public void StopSampling()
+    {
+        if (!IsSampling) return;
+        IsSampling = false;
+        _hud?.Close();
+        _hud = null;
+        App.RefreshHotkeys();
+        Show();
+        Activate();
+        RefreshAiStatus();
+        StatusText.Text = "已退出采样模式。";
+    }
+
+    public void SamplePositiveFromHotkey() => SampleFromHotkey(true);
+
+    public void SampleNegativeFromHotkey() => SampleFromHotkey(false);
+
+    private void SampleFromHotkey(bool positive)
+    {
+        if (!IsSampling) return;
+        if (_frame is null || _roiNative.Width < 8)
+        {
+            _hudFeedback = "还没有画面或没选区域";
+            UpdateHud();
+            return;
+        }
+
+        var roi = new Int32Rect((int)_roiNative.X, (int)_roiNative.Y, (int)_roiNative.Width, (int)_roiNative.Height);
+        var ok = AiSampleStore.SavePatch(_selectedKind.ToString(), positive, _frame, _frameWidth, _frameHeight, roi) is not null;
+        RefreshAiStatus();
+        _hudFeedback = ok ? $"✔ 已采集{(positive ? "正" : "负")}样本" : "采样失败";
+        UpdateHud();
+    }
+
+    public void TrainFromHotkey() => RunTraining();
+
+    private void UpdateHud()
+    {
+        if (_hud is null) return;
+        var kindName = _selectedKind.ToString();
+        var pos = AiSampleStore.Count(kindName, true);
+        var neg = AiSampleStore.Count(kindName, false);
+        var model = AiModel.Load(kindName);
+        var roiText = _roiNative.Width > 0
+            ? $"ROI {_roiNative.Width:0}×{_roiNative.Height:0} @ {_roiNative.X:0},{_roiNative.Y:0}　模型：{(model is null ? "未训练" : model.ValidationAccuracy.ToString("P0"))}"
+            : "ROI 未选择";
+        _hud.UpdateState(
+            ActionKinds.FullLabel(_selectedKind),
+            roiText,
+            pos,
+            neg,
+            _hudFeedback,
+            _darkWarning ? "画面接近全黑：游戏可能全屏独占，请改无边框窗口" : null);
+    }
+
+    private void AiTrain_Click(object sender, RoutedEventArgs e) => RunTraining();
+
+    private async void RunTraining()
     {
         if (_roiNative.Width < 6 || _roiNative.Height < 6)
         {
@@ -418,11 +563,13 @@ public partial class TemplateManagerWindow : Window
             });
 
             StatusText.Text = log;
+            _hudFeedback = log;
             if (model is not null)
             {
                 App.Screen.InvalidateAiModels();
                 RefreshAiStatus();
             }
+            UpdateHud();
         }
         finally
         {

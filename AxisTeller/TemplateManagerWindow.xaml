@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="模板管理" Icon="/Assets/app.ico" Width="1000" Height="740"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Topmost="True"
         UseLayoutRounding="True" Foreground="{StaticResource Ink}"
         TextOptions.TextFormattingMode="Display">
 
@@ -47,11 +47,12 @@
                 <!-- 预览 + 选框 -->
                 <Grid Grid.Column="0" Background="{StaticResource BgPanelAlt}">
                     <Grid x:Name="PreviewHost" Margin="12">
-                        <Image x:Name="PreviewImage" Stretch="Uniform" />
-                        <Canvas x:Name="OverlayCanvas" Background="Transparent"
+                        <Image x:Name="PreviewImage" Stretch="Uniform" IsHitTestVisible="False" />
+                        <Canvas x:Name="OverlayCanvas" Background="Transparent" Cursor="Cross"
                                 MouseLeftButtonDown="Canvas_MouseDown"
                                 MouseMove="Canvas_MouseMove"
-                                MouseLeftButtonUp="Canvas_MouseUp" />
+                                MouseLeftButtonUp="Canvas_MouseUp"
+                                LostMouseCapture="OverlayCanvas_LostMouseCapture" />
                         <Border x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Background="{StaticResource BgPanel}" BorderBrush="{StaticResource Ink}" BorderThickness="1"
                                 Padding="14,8">
@@ -74,7 +75,7 @@
                     <TextBlock x:Name="RoiHint" Text="在左侧画面上按住鼠标拖出要识别的区域（例如技能已放出时的特效/图标、连携提示）。"
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <Button x:Name="SaveButton" Content="保存为模板" Style="{StaticResource AccentButton}"
-                            Click="Save_Click" Margin="0,12,0,0" />
+                            Click="Save_Click" Margin="0,12,0,0" IsEnabled="False" />
 
                     <TextBlock Text="// LIBRARY" Style="{StaticResource Mono}" FontSize="9" Margin="0,18,0,0" />
                     <TextBlock Text="已有模板" Style="{StaticResource SectionTitle}" Margin="0,2,0,0" />
@@ -115,6 +116,10 @@
                         <Button x:Name="AiClearButton" Content="清除样本/模型" Style="{StaticResource OutlineButton}"
                                 Margin="8,0,0,0" Click="AiClear_Click" Padding="10,5" FontSize="11.5" />
                     </StackPanel>
+                    <Button x:Name="SamplingButton" Content="▶  开始采样（游戏里按 F1/F2/F3）" Style="{StaticResource AccentButton}"
+                            Click="StartSampling_Click" Margin="0,8,0,0" />
+                    <TextBlock Text="点「开始采样」后窗口会收起、显示一个小 HUD；切回游戏，按 F1 采正样本、F2 采负样本、F3 训练、F4 退出。"
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock Text="采样：拖好区域后，在「动作出现的瞬间」点「采集正样本」，平时点「采集负样本」；正负各 10 张以上再训练。"
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>

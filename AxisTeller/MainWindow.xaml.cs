@@ -700,6 +700,18 @@ public partial class MainWindow : Window
                 else
                     SetStatus("按「" + State.Settings.SaveTemplateKey + "」保存模板：请先打开「设置 → 管理模板」，拖好识别区域。");
                 return;
+            case HotkeyAction.SamplePositive:
+                TemplateManagerWindow.Current?.SamplePositiveFromHotkey();
+                return;
+            case HotkeyAction.SampleNegative:
+                TemplateManagerWindow.Current?.SampleNegativeFromHotkey();
+                return;
+            case HotkeyAction.TrainAiModel:
+                TemplateManagerWindow.Current?.TrainFromHotkey();
+                return;
+            case HotkeyAction.StopSampling:
+                TemplateManagerWindow.Current?.StopSampling();
+                return;
         }
 
         _overlay?.Refresh();
@@ -738,10 +750,10 @@ public partial class MainWindow : Window
                   $"{step.DisplayName} · {step.ActionText}");
     }
 
-    private void ApplyHotkeys()
+    internal void ApplyHotkeys()
     {
         var s = State.Settings;
-        var bindings = new[]
+        var bindings = new List<HotkeyBinding?>
         {
             HotkeyManager.Build(HotkeyAction.Next, s.NextKey),
             HotkeyManager.Build(HotkeyAction.Previous, s.PrevKey),
@@ -749,9 +761,20 @@ public partial class MainWindow : Window
             HotkeyManager.Build(HotkeyAction.Reset, s.ResetKey),
             HotkeyManager.Build(HotkeyAction.ToggleOverlay, s.ToggleOverlayKey),
             HotkeyManager.Build(HotkeyAction.SaveTemplate, s.SaveTemplateKey),
-        }.Where(b => b is not null).Select(b => b!).ToList();
+        };
 
-        _hotkeys.Apply(bindings);
+        // 采样模式开着时才挂 F1~F4，平时不占按键
+        if (TemplateManagerWindow.Current is { IsSampling: true })
+        {
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SamplePositive, "F1"));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SampleNegative, "F2"));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.TrainAiModel, "F3"));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.StopSampling, "F4"));
+        }
+
+        var resolved = bindings.Where(b => b is not null).Select(b => b!).ToList();
+
+        _hotkeys.Apply(resolved);
         UpdateHotkeyHint();
         if (_hotkeys.Failed.Count > 0)
         {

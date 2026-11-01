@@ -18,6 +18,19 @@ public partial class App : Application
     /// <summary>画面检测（Windows Graphics Capture + 模板匹配）。</summary>
     public static ScreenDetector Screen { get; } = new();
 
+    /// <summary>重新注册全局热键（采样模式开始/结束时调用，用来动态挂上 F1~F4）。</summary>
+    public static void RefreshHotkeys()
+    {
+        try
+        {
+            MainWin?.Dispatcher.BeginInvoke(() => MainWin.ApplyHotkeys());
+        }
+        catch
+        {
+            // 忽略
+        }
+    }
+
     /// <summary>用户用系统捕获选择器选中的游戏窗口（会话内保持有效）。</summary>
     public static GraphicsCaptureItem? CaptureItem { get; set; }
 

@@ -79,7 +79,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.3.0 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.3.1 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"

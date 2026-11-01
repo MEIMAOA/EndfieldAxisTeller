@@ -12,6 +12,10 @@ public enum HotkeyAction
     Reset,
     ToggleOverlay,
     SaveTemplate,
+    SamplePositive,
+    SampleNegative,
+    TrainAiModel,
+    StopSampling,
 }
 
 public sealed record HotkeyBinding(HotkeyAction Action, uint Modifiers, uint VirtualKey, string Text);
