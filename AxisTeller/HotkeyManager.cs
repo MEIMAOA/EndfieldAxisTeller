@@ -11,6 +11,7 @@ public enum HotkeyAction
     NextCycle,
     Reset,
     ToggleOverlay,
+    SaveTemplate,
 }
 
 public sealed record HotkeyBinding(HotkeyAction Action, uint Modifiers, uint VirtualKey, string Text);

@@ -678,6 +678,12 @@ public partial class MainWindow : Window
             case HotkeyAction.ToggleOverlay:
                 ToggleOverlay();
                 return;
+            case HotkeyAction.SaveTemplate:
+                if (TemplateManagerWindow.Current is { } manager)
+                    manager.SaveFromHotkey();
+                else
+                    SetStatus("按「" + State.Settings.SaveTemplateKey + "」保存模板：请先打开「设置 → 管理模板」，拖好识别区域。");
+                return;
         }
 
         _overlay?.Refresh();
@@ -726,6 +732,7 @@ public partial class MainWindow : Window
             HotkeyManager.Build(HotkeyAction.NextCycle, s.NextCycleKey),
             HotkeyManager.Build(HotkeyAction.Reset, s.ResetKey),
             HotkeyManager.Build(HotkeyAction.ToggleOverlay, s.ToggleOverlayKey),
+            HotkeyManager.Build(HotkeyAction.SaveTemplate, s.SaveTemplateKey),
         }.Where(b => b is not null).Select(b => b!).ToList();
 
         _hotkeys.Apply(bindings);
@@ -738,6 +745,7 @@ public partial class MainWindow : Window
                 HotkeyAction.Previous => s.PrevKey,
                 HotkeyAction.NextCycle => s.NextCycleKey,
                 HotkeyAction.Reset => s.ResetKey,
+                HotkeyAction.SaveTemplate => s.SaveTemplateKey,
                 _ => s.ToggleOverlayKey,
             });
             SetStatus("以下热键被占用，可在设置里换一个：" + string.Join("、", names));
@@ -747,7 +755,7 @@ public partial class MainWindow : Window
     private void UpdateHotkeyHint()
     {
         var s = State.Settings;
-        HotkeyHint.Text = $"热键：{s.NextKey} 下一步 · {s.NextCycleKey} 下一循环 · {s.PrevKey} 上一步 · {s.ResetKey} 重来 · {s.ToggleOverlayKey} 提示窗";
+        HotkeyHint.Text = $"热键：{s.NextKey} 下一步 · {s.NextCycleKey} 下一循环 · {s.PrevKey} 上一步 · {s.ResetKey} 重来 · {s.ToggleOverlayKey} 提示窗 · {s.SaveTemplateKey} 存模板";
     }
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)

@@ -31,6 +31,7 @@ public static class Selftest
         TestSeed();
         TestActionDetection();
         TestScreenVision();
+        TestRoiMapper();
 
         var summary = $"\n{_passed} passed, {_failed} failed";
         Log.AppendLine(summary);
@@ -421,6 +422,29 @@ public static class Selftest
                 // 忽略
             }
         }
+    }
+
+    private static void TestRoiMapper()
+    {
+        // 16:9 画面放进偏高的预览区：应当左右贴合、上下留边
+        var fit = AxisTeller.Vision.RoiMapper.Compute(2560, 1440, 675, 600);
+        Check("ROI 缩放按较小边", Math.Abs(fit.Scale - 675.0 / 2560) < 0.001, $"scale={fit.Scale:F4}");
+        Check("ROI 水平无留边", Math.Abs(fit.OffsetX) < 0.5, $"offX={fit.OffsetX:F2}");
+        Check("ROI 垂直居中留边", Math.Abs(fit.OffsetY - (600 - fit.Height) / 2) < 0.5, $"offY={fit.OffsetY:F2}");
+
+        var mapped = AxisTeller.Vision.RoiMapper.Map(100, 130, 130, 100, fit, 2560, 1440);
+        Check("ROI 拖框换算到原像素", Math.Abs(mapped.X - 379) <= 3 && Math.Abs(mapped.Width - 493) <= 3,
+            $"rect={mapped.X},{mapped.Y} {mapped.Width}x{mapped.Height}");
+
+        // 竖屏画面放进宽预览区：应当上下贴合、左右留边
+        var portrait = AxisTeller.Vision.RoiMapper.Compute(1000, 2000, 800, 600);
+        Check("ROI 竖屏垂直无留边", Math.Abs(portrait.OffsetY) < 0.5, $"offY={portrait.OffsetY:F2}");
+        Check("ROI 竖屏水平留边", portrait.OffsetX > 1, $"offX={portrait.OffsetX:F2}");
+
+        // 越界拖框会被裁到画面内
+        var clamp = AxisTeller.Vision.RoiMapper.Map(-50, -50, 4000, 4000, fit, 2560, 1440);
+        Check("ROI 越界裁剪", clamp.X >= 0 && clamp.Y >= 0 && clamp.X + clamp.Width <= 2560 && clamp.Y + clamp.Height <= 1440,
+            $"rect={clamp.X},{clamp.Y} {clamp.Width}x{clamp.Height}");
     }
 
     private static void TestSeed()

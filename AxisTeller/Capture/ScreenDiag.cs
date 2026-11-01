@@ -9,6 +9,71 @@ namespace AxisTeller;
 /// <summary>命令行诊断：抓取指定窗口的若干帧，用给定模板算匹配分，输出报告。</summary>
 public static class ScreenDiag
 {
+    public static bool RunTemplateSmoke(IntPtr hwnd, string kindText, string outFile)
+    {
+        try
+        {
+            var kind = ActionKinds.Parse(kindText);
+            if (kind == ActionKind.Unknown) kind = ActionKind.ComboSkill;
+
+            var item = CaptureHelper.CreateItemForWindow(hwnd);
+            using var capture = new CaptureService();
+            byte[]? frame = null;
+            var width = 0;
+            var height = 0;
+            using var gate = new ManualResetEventSlim(false);
+
+            capture.Error += message => File.AppendAllText(outFile + ".log", message + "\n");
+            capture.FrameArrived += (w, h, bgra) =>
+            {
+                if (frame is not null) return;
+                frame = bgra;
+                width = w;
+                height = h;
+                gate.Set();
+            };
+
+            capture.Start(item);
+            gate.Wait(TimeSpan.FromSeconds(12));
+            capture.Stop();
+
+            if (frame is null || width <= 0)
+            {
+                File.WriteAllText(outFile, "未收到任何帧。");
+                return false;
+            }
+
+            // 取画面正中间 200x200 作为模板（真实缩放下应能 100% 匹配自己）
+            var w2 = Math.Min(200, width / 2);
+            var h2 = Math.Min(200, height / 2);
+            var x = (width - w2) / 2;
+            var y = (height - h2) / 2;
+
+            var lib = new TemplateLibrary();
+            var saved = lib.Save(kind, frame, width, height, x, y, w2, h2);
+            var bytes = File.ReadAllBytes(saved);
+            var matcher = new TemplateMatcher();
+            var score = matcher.Match(frame, width, height, bytes);
+
+            var report = new[]
+            {
+                $"frame={width}x{height}",
+                $"saved={saved}",
+                $"kind={kind}",
+                $"bytes={bytes.Length}",
+                $"selfMatch={score:F3}",
+                $"pass={(score >= 0.9 ? "YES" : "NO")}",
+            };
+            File.WriteAllLines(outFile, report);
+            return score >= 0.9;
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(outFile, ex.ToString());
+            return false;
+        }
+    }
+
     public static bool Run(IntPtr hwnd, string templatePath, string outFile, double threshold)
     {
         try

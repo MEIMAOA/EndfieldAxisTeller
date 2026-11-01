@@ -210,6 +210,7 @@ public sealed class AppSettings : ObservableObject
     private string _nextCycleKey = "F9";
     private string _resetKey = "F10";
     private string _toggleOverlayKey = "F6";
+    private string _saveTemplateKey = "F5";
     private bool _loopInfinite = true;
     private bool _topmost = true;
     private bool _showOverlayOnStart;
@@ -236,6 +237,9 @@ public sealed class AppSettings : ObservableObject
     public string NextCycleKey { get => _nextCycleKey; set => Set(ref _nextCycleKey, value); }
     public string ResetKey { get => _resetKey; set => Set(ref _resetKey, value); }
     public string ToggleOverlayKey { get => _toggleOverlayKey; set => Set(ref _toggleOverlayKey, value); }
+
+    /// <summary>在模板管理窗口里截取并保存模板的全局快捷键。</summary>
+    public string SaveTemplateKey { get => _saveTemplateKey; set => Set(ref _saveTemplateKey, value); }
 
     /// <summary>走完所有轮数后是否回到第一轮继续。</summary>
     public bool LoopInfinite { get => _loopInfinite; set => Set(ref _loopInfinite, value); }
@@ -298,6 +302,7 @@ public sealed class AppSettings : ObservableObject
         NextCycleKey = other.NextCycleKey;
         ResetKey = other.ResetKey;
         ToggleOverlayKey = other.ToggleOverlayKey;
+        SaveTemplateKey = other.SaveTemplateKey;
         LoopInfinite = other.LoopInfinite;
         Topmost = other.Topmost;
         ShowOverlayOnStart = other.ShowOverlayOnStart;

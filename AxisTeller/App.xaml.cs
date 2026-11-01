@@ -50,6 +50,19 @@ public partial class App : Application
             return;
         }
 
+        var tplSmokeIndex = Array.FindIndex(args, a => string.Equals(a, "--tpl-smoke", StringComparison.OrdinalIgnoreCase));
+        if (tplSmokeIndex >= 0)
+        {
+            var hwnd = tplSmokeIndex + 1 < args.Length && long.TryParse(args[tplSmokeIndex + 1], out var h)
+                ? new IntPtr(h)
+                : IntPtr.Zero;
+            var kind = tplSmokeIndex + 2 < args.Length ? args[tplSmokeIndex + 2] : "ComboSkill";
+            var output = tplSmokeIndex + 3 < args.Length ? args[tplSmokeIndex + 3] : Path.Combine(Path.GetTempPath(), "tpl-smoke.txt");
+            var ok = ScreenDiag.RunTemplateSmoke(hwnd, kind, output);
+            Shutdown(ok ? 0 : 1);
+            return;
+        }
+
         var diagIndex = Array.FindIndex(args, a => string.Equals(a, "--screen-diag", StringComparison.OrdinalIgnoreCase));
         if (diagIndex >= 0)
         {

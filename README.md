@@ -65,8 +65,13 @@
 | `F7` | 上一个动作 |
 | `F10` | 从头开始 |
 | `F6` | 显示 / 隐藏悬浮提示窗 |
+| `F5` | 保存模板（模板管理窗口打开、已拖好识别区域时，把当前画面存成模板） |
 
 热键是**全局**的，游戏窗口在前台也能按（在「设置 → 按键」里换成你顺手的键，比如 `F1~F12`、`Ctrl+F8` 等）。
+
+> **保存模板快捷键**的用法：先「设置 → 管理模板」打开模板管理、拖框选好要识别的区域，之后按 `F5`（可改）就能把
+> **当前画面**存成当前类型的模板——不用再点按钮，可以在游戏里等技能特效正好出现的瞬间按一下抓帧。
+> 模板管理窗口里还有本地快捷键：`Ctrl+S` 保存、`Delete` 删除选中模板、`Esc` 关闭。
 
 ### 推进规则
 
@@ -180,7 +185,7 @@ dotnet build AxisTeller\AxisTeller.csproj -c Release
 dotnet run --project AxisTeller\AxisTeller.csproj -c Release
 ```
 
-自测（状态机、存档、角色库、热键解析、动作识别、画面模板匹配等 67 项，CI 也会跑）：
+自测（状态机、存档、角色库、热键解析、动作识别、画面模板匹配等 75 项，CI 也会跑）：
 
 ```powershell
 .\AxisTeller\bin\Release\net10.0-windows\AxisTeller.exe --selftest selftest-report.txt

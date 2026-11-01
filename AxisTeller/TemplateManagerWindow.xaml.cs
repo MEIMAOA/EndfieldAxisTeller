@@ -13,6 +13,9 @@ namespace AxisTeller;
 
 public partial class TemplateManagerWindow : Window
 {
+    /// <summary>当前打开的模板管理窗口（供全局「保存模板」热键调用）。</summary>
+    public static TemplateManagerWindow? Current { get; private set; }
+
     private readonly CaptureService _capture = new();
     private readonly TemplateLibrary _library = new();
     private readonly TemplateMatcher _matcher = new();
@@ -29,7 +32,7 @@ public partial class TemplateManagerWindow : Window
     private Point _dragStart;
     private bool _dragging;
     private Rect _roiNative;
-    private double _renderScale = 1;
+    private RoiMapper.Fit _fit;
     private bool _checking;
 
     private sealed record Row(string Text, TemplateInfo Info);
@@ -39,6 +42,7 @@ public partial class TemplateManagerWindow : Window
         InitializeComponent();
         _item = item;
         _threshold = threshold;
+        Current = this;
 
         _renderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _renderTimer.Tick += (_, _) => Render();
@@ -51,6 +55,7 @@ public partial class TemplateManagerWindow : Window
 
         Closed += (_, _) =>
         {
+            if (ReferenceEquals(Current, this)) Current = null;
             _capture.Stop();
             _renderTimer.Stop();
             _checkTimer.Stop();
@@ -67,6 +72,7 @@ public partial class TemplateManagerWindow : Window
         _renderTimer.Start();
         _checkTimer.Start();
         EmptyHint.Visibility = Visibility.Visible;
+        StatusText.Text = $"拖框选区后，按「{App.State.Settings.SaveTemplateKey}」或「Ctrl+S」保存模板（也可点按钮）";
     }
 
     private void OnFrame(int width, int height, byte[] bgra)
@@ -92,15 +98,12 @@ public partial class TemplateManagerWindow : Window
             var ch = PreviewImage.ActualHeight;
             if (cw <= 0 || ch <= 0) return;
 
-            _renderScale = Math.Min(cw / _frameWidth, ch / _frameHeight);
-            var rw = _frameWidth * _renderScale;
-            var rh = _frameHeight * _renderScale;
-
-            OverlayCanvas.Width = rw;
-            OverlayCanvas.Height = rh;
+            _fit = RoiMapper.Compute(_frameWidth, _frameHeight, cw, ch);
+            OverlayCanvas.Width = _fit.Width;
+            OverlayCanvas.Height = _fit.Height;
             OverlayCanvas.HorizontalAlignment = HorizontalAlignment.Left;
             OverlayCanvas.VerticalAlignment = VerticalAlignment.Top;
-            OverlayCanvas.Margin = new Thickness((cw - rw) / 2, (ch - rh) / 2, 0, 0);
+            OverlayCanvas.Margin = new Thickness(_fit.OffsetX, _fit.OffsetY, 0, 0);
 
             EmptyHint.Visibility = Visibility.Collapsed;
             FrameInfoText.Text = $"{_frameWidth}×{_frameHeight}";
@@ -203,24 +206,29 @@ public partial class TemplateManagerWindow : Window
             return;
         }
 
-        var scale = _renderScale <= 0 ? 1 : 1 / _renderScale;
-        _roiNative = new Rect(x * scale, y * scale, w * scale, h * scale);
-        StatusText.Text = $"已选区域：{_roiNative.Width:0}×{_roiNative.Height:0}（原始像素）";
+        var mapped = RoiMapper.Map(x + _fit.OffsetX, y + _fit.OffsetY, w, h, _fit, _frameWidth, _frameHeight);
+        _roiNative = new Rect(mapped.X, mapped.Y, mapped.Width, mapped.Height);
+        StatusText.Text = $"已选区域：{mapped.X},{mapped.Y} {mapped.Width}×{mapped.Height}（原始像素）";
     }
 
     // ================= 模板操作 =================
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private void Save_Click(object sender, RoutedEventArgs e) => SaveTemplate("点击按钮");
+
+    /// <summary>全局「保存模板」热键：把当前画面里已选好的区域存成模板。</summary>
+    public void SaveFromHotkey() => SaveTemplate("快捷键 " + App.State.Settings.SaveTemplateKey);
+
+    private void SaveTemplate(string via)
     {
         if (_frame is null || _frameWidth <= 0)
         {
-            StatusText.Text = "还没有画面，等预览出现后再保存。";
+            StatusText.Text = $"{via}保存：还没拿到画面，等预览出现后再试。";
             return;
         }
 
         if (_roiNative.Width < 6 || _roiNative.Height < 6)
         {
-            StatusText.Text = "请先在左侧画面上拖出要识别的区域。";
+            StatusText.Text = $"{via}保存：请先在左侧预览上拖出要识别的区域。";
             return;
         }
 
@@ -234,11 +242,12 @@ public partial class TemplateManagerWindow : Window
         {
             var png = System.IO.File.ReadAllBytes(file);
             var score = _matcher.Match(_frame, _frameWidth, _frameHeight, png);
-            StatusText.Text = $"已保存模板：{System.IO.Path.GetFileName(file)}　当前画面自测匹配度 {score * 100:0}%";
+            StatusText.Text = $"已保存模板（{via}）：{System.IO.Path.GetFileName(file)}　当前画面自测 {score * 100:0}%";
+            MatchScoreText.Text = $"刚保存的模板：{score * 100:0}%（{ActionKinds.FullLabel(_selectedKind)}）";
         }
         catch
         {
-            StatusText.Text = $"已保存模板：{System.IO.Path.GetFileName(file)}";
+            StatusText.Text = $"已保存模板（{via}）：{System.IO.Path.GetFileName(file)}";
         }
     }
 
@@ -312,6 +321,27 @@ public partial class TemplateManagerWindow : Window
     }
 
     private string ThresholdHint() => $"{_threshold * 100:0}%";
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            SaveFromHotkey();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete)
+        {
+            Delete_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            Close();
+            e.Handled = true;
+        }
+
+        base.OnPreviewKeyDown(e);
+    }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

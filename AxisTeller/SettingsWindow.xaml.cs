@@ -38,6 +38,7 @@ public partial class SettingsWindow : Window
         PrevKeyButton.Content = _draft.PrevKey;
         ResetKeyButton.Content = _draft.ResetKey;
         ToggleKeyButton.Content = _draft.ToggleOverlayKey;
+        SaveTemplateKeyButton.Content = string.IsNullOrWhiteSpace(_draft.SaveTemplateKey) ? "未设置" : _draft.SaveTemplateKey;
 
         LoopInfiniteCheck.IsChecked = _draft.LoopInfinite;
         TopmostCheck.IsChecked = _draft.Topmost;
@@ -75,7 +76,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.2.2 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.2.3 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -276,6 +277,7 @@ public partial class SettingsWindow : Window
             case "NextCycleKey": _draft.NextCycleKey = key; break;
             case "ResetKey": _draft.ResetKey = key; break;
             case "ToggleOverlayKey": _draft.ToggleOverlayKey = key; break;
+            case "SaveTemplateKey": _draft.SaveTemplateKey = key; break;
         }
     }
 
