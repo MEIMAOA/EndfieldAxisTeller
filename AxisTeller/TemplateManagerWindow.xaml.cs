@@ -476,7 +476,7 @@ public partial class TemplateManagerWindow : Window
         }
 
         IsSampling = true;
-        _hudFeedback = "切回游戏，按 F1 采正样本";
+        _hudFeedback = $"切回游戏，按 {App.State.Settings.SamplePosKey} 采正样本";
         _hud = new SamplingHudWindow(this);
         _hud.Show();
         UpdateHud();

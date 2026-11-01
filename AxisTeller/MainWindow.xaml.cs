@@ -49,7 +49,9 @@ public partial class MainWindow : Window
         RefreshAxisList();
         UpdateSourceChip();
         UpdateHotkeyHint();
-        StatusText.Text = App.LastStatus ?? "就绪";
+        StatusText.Text = App.LastStatus ?? (Store.HotkeysMigrated
+            ? "热键已自动改为 F11/F12 组合：F1~F10 在终末地里大多有功能，避免顶掉游戏按键（可在设置里改）"
+            : "就绪");
 
         Loaded += (_, _) => ApplyHotkeys();
         Closing += OnClosing;
@@ -753,23 +755,26 @@ public partial class MainWindow : Window
     internal void ApplyHotkeys()
     {
         var s = State.Settings;
-        var bindings = new List<HotkeyBinding?>
-        {
-            HotkeyManager.Build(HotkeyAction.Next, s.NextKey),
-            HotkeyManager.Build(HotkeyAction.Previous, s.PrevKey),
-            HotkeyManager.Build(HotkeyAction.NextCycle, s.NextCycleKey),
-            HotkeyManager.Build(HotkeyAction.Reset, s.ResetKey),
-            HotkeyManager.Build(HotkeyAction.ToggleOverlay, s.ToggleOverlayKey),
-            HotkeyManager.Build(HotkeyAction.SaveTemplate, s.SaveTemplateKey),
-        };
+        var sampling = TemplateManagerWindow.Current is { IsSampling: true };
+        var bindings = new List<HotkeyBinding?>();
 
-        // 采样模式开着时才挂 F1~F4，平时不占按键
-        if (TemplateManagerWindow.Current is { IsSampling: true })
+        if (sampling)
         {
-            bindings.Add(HotkeyManager.Build(HotkeyAction.SamplePositive, "F1"));
-            bindings.Add(HotkeyManager.Build(HotkeyAction.SampleNegative, "F2"));
-            bindings.Add(HotkeyManager.Build(HotkeyAction.TrainAiModel, "F3"));
-            bindings.Add(HotkeyManager.Build(HotkeyAction.StopSampling, "F4"));
+            // 采样模式：只挂采样热键（默认 F11 / F12 / Ctrl+F11 / Ctrl+F12，不占游戏键）
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SamplePositive, s.SamplePosKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SampleNegative, s.SampleNegKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.TrainAiModel, s.TrainAiKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.StopSampling, s.StopSampleKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SaveTemplate, s.SaveTemplateKey));
+        }
+        else
+        {
+            bindings.Add(HotkeyManager.Build(HotkeyAction.Next, s.NextKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.Previous, s.PrevKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.NextCycle, s.NextCycleKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.Reset, s.ResetKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.ToggleOverlay, s.ToggleOverlayKey));
+            bindings.Add(HotkeyManager.Build(HotkeyAction.SaveTemplate, s.SaveTemplateKey));
         }
 
         var resolved = bindings.Where(b => b is not null).Select(b => b!).ToList();
@@ -785,6 +790,10 @@ public partial class MainWindow : Window
                 HotkeyAction.NextCycle => s.NextCycleKey,
                 HotkeyAction.Reset => s.ResetKey,
                 HotkeyAction.SaveTemplate => s.SaveTemplateKey,
+                HotkeyAction.SamplePositive => s.SamplePosKey,
+                HotkeyAction.SampleNegative => s.SampleNegKey,
+                HotkeyAction.TrainAiModel => s.TrainAiKey,
+                HotkeyAction.StopSampling => s.StopSampleKey,
                 _ => s.ToggleOverlayKey,
             });
             SetStatus("以下热键被占用，可在设置里换一个：" + string.Join("、", names));

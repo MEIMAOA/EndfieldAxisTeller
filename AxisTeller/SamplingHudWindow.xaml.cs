@@ -47,7 +47,9 @@ public partial class SamplingHudWindow : Window
 
     private void HoverPlaceholder()
     {
-        HintText.Text = "F1 正样本 · F2 负样本 · F3 训练 · F4 退出\nF5 保存模板（旧方式）";
+        var s = App.State.Settings;
+        HintText.Text = $"{s.SamplePosKey} 正样本 · {s.SampleNegKey} 负样本 · {s.TrainAiKey} 训练\n" +
+                        $"{s.StopSampleKey} 退出采样 · {s.SaveTemplateKey} 保存模板";
     }
 
     private void Stop_Click(object sender, RoutedEventArgs e) => _manager.StopSampling();

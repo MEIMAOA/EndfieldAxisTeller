@@ -116,9 +116,9 @@
                         <Button x:Name="AiClearButton" Content="清除样本/模型" Style="{StaticResource OutlineButton}"
                                 Margin="8,0,0,0" Click="AiClear_Click" Padding="10,5" FontSize="11.5" />
                     </StackPanel>
-                    <Button x:Name="SamplingButton" Content="▶  开始采样（游戏里按 F1/F2/F3）" Style="{StaticResource AccentButton}"
+                    <Button x:Name="SamplingButton" Content="▶  开始采样（游戏内热键）" Style="{StaticResource AccentButton}"
                             Click="StartSampling_Click" Margin="0,8,0,0" />
-                    <TextBlock Text="点「开始采样」后窗口会收起、显示一个小 HUD；切回游戏，按 F1 采正样本、F2 采负样本、F3 训练、F4 退出。"
+                    <TextBlock Text="点「开始采样」后窗口会收起、显示一个小 HUD；切回游戏用热键操作（默认 F11 采正样本、F12 采负样本、Ctrl+F11 训练、Ctrl+F12 退出，可在设置里改）。"
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock Text="采样：拖好区域后，在「动作出现的瞬间」点「采集正样本」，平时点「采集负样本」；正负各 10 张以上再训练。"
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />

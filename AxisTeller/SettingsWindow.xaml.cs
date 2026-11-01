@@ -39,6 +39,10 @@ public partial class SettingsWindow : Window
         ResetKeyButton.Content = _draft.ResetKey;
         ToggleKeyButton.Content = _draft.ToggleOverlayKey;
         SaveTemplateKeyButton.Content = string.IsNullOrWhiteSpace(_draft.SaveTemplateKey) ? "未设置" : _draft.SaveTemplateKey;
+        SamplePosKeyButton.Content = _draft.SamplePosKey;
+        SampleNegKeyButton.Content = _draft.SampleNegKey;
+        TrainAiKeyButton.Content = _draft.TrainAiKey;
+        StopSampleKeyButton.Content = _draft.StopSampleKey;
 
         LoopInfiniteCheck.IsChecked = _draft.LoopInfinite;
         TopmostCheck.IsChecked = _draft.Topmost;
@@ -79,7 +83,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.3.1 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.3.2 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -293,6 +297,10 @@ public partial class SettingsWindow : Window
             case "ResetKey": _draft.ResetKey = key; break;
             case "ToggleOverlayKey": _draft.ToggleOverlayKey = key; break;
             case "SaveTemplateKey": _draft.SaveTemplateKey = key; break;
+            case "SamplePosKey": _draft.SamplePosKey = key; break;
+            case "SampleNegKey": _draft.SampleNegKey = key; break;
+            case "TrainAiKey": _draft.TrainAiKey = key; break;
+            case "StopSampleKey": _draft.StopSampleKey = key; break;
         }
     }
 

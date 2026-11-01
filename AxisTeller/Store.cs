@@ -24,6 +24,7 @@ public static class Store
             if (File.Exists(StatePath))
             {
                 var state = JsonSerializer.Deserialize<AppState>(File.ReadAllText(StatePath), Json.Options);
+                if (state is not null) MigrateHotkeys(state.Settings);
                 if (state is { Axes.Count: > 0 }) return state;
                 if (state is not null)
                 {
@@ -38,6 +39,35 @@ public static class Store
         }
 
         return CreateSeed();
+    }
+
+    /// <summary>热键已迁移标记（为 true 时启动后提示一次）。</summary>
+    public static bool HotkeysMigrated { get; private set; }
+
+    /// <summary>旧版默认热键是 F6~F10，会在终末地里顶掉游戏自己的 F 键功能，迁移到 F11/F12 组合。</summary>
+    private static void MigrateHotkeys(AppSettings? settings)
+    {
+        if (settings is null) return;
+        var changed = false;
+        void Fix(Action<string> set, string current, string oldValue, string newValue)
+        {
+            if (!string.Equals(current, oldValue, StringComparison.OrdinalIgnoreCase)) return;
+            set(newValue);
+            changed = true;
+        }
+
+        Fix(v => settings.NextKey = v, settings.NextKey, "F8", "F11");
+        Fix(v => settings.PrevKey = v, settings.PrevKey, "F7", "Shift+F11");
+        Fix(v => settings.NextCycleKey = v, settings.NextCycleKey, "F9", "Ctrl+F11");
+        Fix(v => settings.ResetKey = v, settings.ResetKey, "F10", "Ctrl+Shift+F11");
+        Fix(v => settings.ToggleOverlayKey = v, settings.ToggleOverlayKey, "F6", "Alt+F11");
+        Fix(v => settings.SaveTemplateKey = v, settings.SaveTemplateKey, "F5", "Ctrl+F12");
+        // v1.3.2 之前的采样默认是 F1~F4（会和终末地按键打架）
+        Fix(v => settings.SamplePosKey = v, settings.SamplePosKey, "F1", "F11");
+        Fix(v => settings.SampleNegKey = v, settings.SampleNegKey, "F2", "Alt+F11");
+        Fix(v => settings.TrainAiKey = v, settings.TrainAiKey, "F3", "Ctrl+F11");
+        Fix(v => settings.StopSampleKey = v, settings.StopSampleKey, "F4", "Alt+F12");
+        if (changed) HotkeysMigrated = true;
     }
 
     private static void BackupBroken(Exception ex)

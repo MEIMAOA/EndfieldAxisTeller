@@ -205,12 +205,17 @@ public sealed class Axis : ObservableObject
 
 public sealed class AppSettings : ObservableObject
 {
-    private string _nextKey = "F8";
-    private string _prevKey = "F7";
-    private string _nextCycleKey = "F9";
-    private string _resetKey = "F10";
-    private string _toggleOverlayKey = "F6";
-    private string _saveTemplateKey = "F5";
+    // 默认热键全部避开终末地占用的 F1~F10，也避开 Steam 截图默认的 F12（只在其上加修饰键）
+    private string _nextKey = "F11";
+    private string _prevKey = "Shift+F11";
+    private string _nextCycleKey = "Ctrl+F11";
+    private string _resetKey = "Ctrl+Shift+F11";
+    private string _toggleOverlayKey = "Alt+F11";
+    private string _saveTemplateKey = "Ctrl+F12";
+    private string _samplePosKey = "F11";
+    private string _sampleNegKey = "Alt+F11";
+    private string _trainAiKey = "Ctrl+F11";
+    private string _stopSampleKey = "Alt+F12";
     private bool _loopInfinite = true;
     private bool _topmost = true;
     private bool _showOverlayOnStart;
@@ -241,6 +246,18 @@ public sealed class AppSettings : ObservableObject
 
     /// <summary>在模板管理窗口里截取并保存模板的全局快捷键。</summary>
     public string SaveTemplateKey { get => _saveTemplateKey; set => Set(ref _saveTemplateKey, value); }
+
+    /// <summary>采样模式：采正样本热键（游戏里按）。</summary>
+    public string SamplePosKey { get => _samplePosKey; set => Set(ref _samplePosKey, value); }
+
+    /// <summary>采样模式：采负样本热键。</summary>
+    public string SampleNegKey { get => _sampleNegKey; set => Set(ref _sampleNegKey, value); }
+
+    /// <summary>采样模式：训练 AI 模型热键。</summary>
+    public string TrainAiKey { get => _trainAiKey; set => Set(ref _trainAiKey, value); }
+
+    /// <summary>采样模式：退出采样热键。</summary>
+    public string StopSampleKey { get => _stopSampleKey; set => Set(ref _stopSampleKey, value); }
 
     /// <summary>走完所有轮数后是否回到第一轮继续。</summary>
     public bool LoopInfinite { get => _loopInfinite; set => Set(ref _loopInfinite, value); }
@@ -307,6 +324,10 @@ public sealed class AppSettings : ObservableObject
         ResetKey = other.ResetKey;
         ToggleOverlayKey = other.ToggleOverlayKey;
         SaveTemplateKey = other.SaveTemplateKey;
+        SamplePosKey = other.SamplePosKey;
+        SampleNegKey = other.SampleNegKey;
+        TrainAiKey = other.TrainAiKey;
+        StopSampleKey = other.StopSampleKey;
         LoopInfinite = other.LoopInfinite;
         Topmost = other.Topmost;
         ShowOverlayOnStart = other.ShowOverlayOnStart;

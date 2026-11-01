@@ -55,6 +55,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="10" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <Grid Grid.Row="0" Grid.Column="0">
@@ -91,6 +93,40 @@
                             </Grid>
                             <TextBlock Grid.Row="6" Grid.Column="2" Text="模板管理窗口打开时按一下，把当前画面里已选好的区域存成模板。"
                                        Style="{StaticResource Caption}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Grid.Row="7" Grid.ColumnSpan="3" Text="// SAMPLING　游戏内采样热键（仅在「开始采样」时生效；F1~F10 在终末地里大多有功能，默认用 F11/F12）"
+                                       Style="{StaticResource Mono}" FontSize="8.5" Margin="0,14,0,8" TextWrapping="Wrap" />
+                            <Grid Grid.Row="8" Grid.ColumnSpan="3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Text="采正样本" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="SamplePosKeyButton" Tag="SamplePosKey" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="116" Click="ChooseKey_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="0" Grid.Column="2">
+                                    <TextBlock Text="采负样本" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="SampleNegKeyButton" Tag="SampleNegKey" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="116" Click="ChooseKey_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="2" Grid.Column="0">
+                                    <TextBlock Text="训练 AI 模型" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="TrainAiKeyButton" Tag="TrainAiKey" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="116" Click="ChooseKey_Click" Padding="8,5" />
+                                </Grid>
+                                <Grid Grid.Row="2" Grid.Column="2">
+                                    <TextBlock Text="退出采样" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button x:Name="StopSampleKeyButton" Tag="StopSampleKey" Style="{StaticResource OutlineButton}"
+                                            HorizontalAlignment="Right" MinWidth="116" Click="ChooseKey_Click" Padding="8,5" />
+                                </Grid>
+                            </Grid>
                         </Grid>
                     </Border>
 
