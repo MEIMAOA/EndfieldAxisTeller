@@ -231,6 +231,7 @@ public sealed class AppSettings : ObservableObject
     private string _detectSource = "keys";
     private double _screenMatchThreshold = 0.80;
     private string _captureWindowTitle = "";
+    private string _screenDetectMode = "template";
 
     public string NextKey { get => _nextKey; set => Set(ref _nextKey, value); }
     public string PrevKey { get => _prevKey; set => Set(ref _prevKey, value); }
@@ -282,6 +283,9 @@ public sealed class AppSettings : ObservableObject
     /// <summary>选择的捕获窗口标题（仅显示用；实际捕获对象保存在内存里）。</summary>
     public string CaptureWindowTitle { get => _captureWindowTitle; set => Set(ref _captureWindowTitle, value); }
 
+    /// <summary>画面识别的判定方式：template = 模板匹配；ai = ONNX 特征 + 本地训练分类头；hybrid = 两者任一命中。</summary>
+    public string ScreenDetectMode { get => _screenDetectMode; set => Set(ref _screenDetectMode, value); }
+
     public double OverlayLeft { get; set; } = double.NaN;
     public double OverlayTop { get; set; } = double.NaN;
     public double OverlayWidth { get; set; } = 520;
@@ -322,6 +326,7 @@ public sealed class AppSettings : ObservableObject
         DetectSource = other.DetectSource;
         ScreenMatchThreshold = other.ScreenMatchThreshold;
         CaptureWindowTitle = other.CaptureWindowTitle;
+        ScreenDetectMode = other.ScreenDetectMode;
         OverlayLeft = other.OverlayLeft;
         OverlayTop = other.OverlayTop;
         OverlayWidth = other.OverlayWidth;

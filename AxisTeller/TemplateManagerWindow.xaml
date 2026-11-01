@@ -62,8 +62,9 @@
 
                 <Border Grid.Column="1" Background="{StaticResource Ink}" />
 
-                <!-- 右侧操作 -->
-                <StackPanel Grid.Column="2" Margin="16,14,16,14">
+                <!-- 右侧操作（可滚动） -->
+                <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="16,14,16,14">
                     <TextBlock Text="// ACTION KIND" Style="{StaticResource Mono}" FontSize="9" />
                     <TextBlock Text="动作类型（模板归属）" Style="{StaticResource SectionTitle}" Margin="0,2,0,0" />
                     <WrapPanel x:Name="KindPanel" Margin="0,8,0,0" />
@@ -96,7 +97,28 @@
                     <TextBlock Text="匹配自测" Style="{StaticResource SectionTitle}" Margin="0,2,0,0" />
                     <TextBlock x:Name="MatchScoreText" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                Margin="0,6,0,0" Text="等待画面…" />
+
+                    <TextBlock Text="// AI MODEL" Style="{StaticResource Mono}" FontSize="9" Margin="0,18,0,0" />
+                    <TextBlock Text="AI 训练（ONNX 预训练特征 + 本地分类头）" Style="{StaticResource SectionTitle}"
+                               Margin="0,2,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="AiStatusText" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Margin="0,6,0,0" Text="读取中…" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="AiPosButton" Content="采集正样本" Style="{StaticResource OutlineButton}"
+                                Click="AiCapturePos_Click" Padding="10,5" FontSize="11.5" />
+                        <Button x:Name="AiNegButton" Content="采集负样本" Style="{StaticResource OutlineButton}"
+                                Margin="8,0,0,0" Click="AiCaptureNeg_Click" Padding="10,5" FontSize="11.5" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button x:Name="AiTrainButton" Content="训练模型" Style="{StaticResource AccentButton}"
+                                Click="AiTrain_Click" Padding="12,6" FontSize="11.5" />
+                        <Button x:Name="AiClearButton" Content="清除样本/模型" Style="{StaticResource OutlineButton}"
+                                Margin="8,0,0,0" Click="AiClear_Click" Padding="10,5" FontSize="11.5" />
+                    </StackPanel>
+                    <TextBlock Text="采样：拖好区域后，在「动作出现的瞬间」点「采集正样本」，平时点「采集负样本」；正负各 10 张以上再训练。"
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
+                </ScrollViewer>
             </Grid>
 
             <!-- 底部 -->

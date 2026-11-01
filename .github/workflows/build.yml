@@ -31,7 +31,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "self test failed (exit $($p.ExitCode))" }
 
       - name: Publish
-        run: dotnet publish AxisTeller/AxisTeller.csproj -c Release -o publish
+        run: dotnet publish AxisTeller/AxisTeller.csproj -c Release -r win-x64 --self-contained false -o publish
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

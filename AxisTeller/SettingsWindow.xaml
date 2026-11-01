@@ -202,7 +202,7 @@
                                 </Grid>
                             </Grid>
 
-                            <TextBlock Text="// SCREEN DETECT　画面识别（Windows Graphics Capture + 模板匹配）"
+                            <TextBlock Text="// SCREEN DETECT　画面识别（Windows Graphics Capture + 模板匹配 / AI 模型）"
                                        Style="{StaticResource Mono}" FontSize="8.5" Margin="0,16,0,8" />
                             <Grid>
                                 <TextBlock x:Name="CaptureWindowText" Text="未选择游戏窗口" Style="{StaticResource Caption}"
@@ -225,6 +225,20 @@
                                             Click="ThresholdPlus_Click" />
                                 </StackPanel>
                             </Grid>
+                            <Grid Margin="0,12,0,0">
+                                <TextBlock Text="识别方式" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="ModeTemplateButton" Tag="template" Content="模板匹配"
+                                            Style="{StaticResource OutlineButton}" Click="ScreenMode_Click" Padding="10,5" FontSize="11.5" />
+                                    <Button x:Name="ModeAiButton" Tag="ai" Content="AI 模型"
+                                            Style="{StaticResource OutlineButton}" Margin="8,0,0,0" Click="ScreenMode_Click" Padding="10,5" FontSize="11.5" />
+                                    <Button x:Name="ModeHybridButton" Tag="hybrid" Content="两者结合"
+                                            Style="{StaticResource OutlineButton}" Margin="8,0,0,0" Click="ScreenMode_Click" Padding="10,5" FontSize="11.5" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="AI 模型：用预训练视觉模型（MobileNetV2）提取特征，在「管理模板 → AI 训练」里用画面样本训练小分类头。某个动作还没训练过时，会自动退回模板匹配。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
                             <TextBlock Text="说明：先「选择游戏窗口」，再在「管理模板」里把游戏里「技能已放出 / 连携提示出现」等画面区域截成模板（每种动作 1~3 张），工具会持续比对画面，匹配到就判定完成。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0" />
 

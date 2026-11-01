@@ -94,6 +94,20 @@ public sealed class TemplateMatcher
         return mat;
     }
 
+    /// <summary>把 BGRA 帧裁一块出来（不做编码），给 AI 特征提取用。</summary>
+    public static byte[] CropBgra(byte[] frameBgra, int frameWidth, int frameHeight, int x, int y, int w, int h)
+    {
+        x = Math.Clamp(x, 0, Math.Max(0, frameWidth - 1));
+        y = Math.Clamp(y, 0, Math.Max(0, frameHeight - 1));
+        w = Math.Clamp(w, 1, frameWidth - x);
+        h = Math.Clamp(h, 1, frameHeight - y);
+
+        var result = new byte[w * h * 4];
+        for (var row = 0; row < h; row++)
+            Buffer.BlockCopy(frameBgra, ((y + row) * frameWidth + x) * 4, result, row * w * 4, w * 4);
+        return result;
+    }
+
     /// <summary>把 BGRA 帧裁一块出来，编码成 PNG 字节（用于保存模板）。</summary>
     public static byte[] CropToPng(byte[] frameBgra, int frameWidth, int frameHeight, int x, int y, int w, int h)
     {

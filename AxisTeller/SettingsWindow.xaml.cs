@@ -53,6 +53,9 @@ public partial class SettingsWindow : Window
             ? "未选择游戏窗口"
             : "捕获：" + _draft.CaptureWindowTitle;
         ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
+        ApplyModeStyle(ModeTemplateButton, _draft.ScreenDetectMode == "template");
+        ApplyModeStyle(ModeAiButton, _draft.ScreenDetectMode == "ai");
+        ApplyModeStyle(ModeHybridButton, _draft.ScreenDetectMode == "hybrid");
 
         BindNormalButton.Content = ActionKinds.BindingLabel(_draft.AutoBindNormal);
         BindHeavyButton.Content = ActionKinds.BindingLabel(_draft.AutoBindHeavy);
@@ -76,7 +79,7 @@ public partial class SettingsWindow : Window
             : $"已同步：{_draft.SklandUserName}";
 
         UpdateServerButtons();
-        AboutVersionText.Text = $"终末地轴提示器 v1.2.3 · 存档目录：{Store.Root}";
+        AboutVersionText.Text = $"终末地轴提示器 v1.3.0 · 存档目录：{Store.Root}";
         DataPathText.Text = "存档文件：state.json（轴数据 + 设置）";
         SyncStatus.Text = _library.Owned.Count > 0
             ? $"当前已加载 {_library.Owned.Count} 名持有角色"
@@ -156,16 +159,28 @@ public partial class SettingsWindow : Window
         manager.ShowDialog();
     }
 
+    private void ScreenMode_Click(object sender, RoutedEventArgs e)
+    {
+        _draft.ScreenDetectMode = (sender as FrameworkElement)?.Tag?.ToString() ?? "template";
+        RefreshUi();
+    }
+
     private void ThresholdMinus_Click(object sender, RoutedEventArgs e)
     {
         _draft.ScreenMatchThreshold -= 0.05;
         ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
+        ApplyModeStyle(ModeTemplateButton, _draft.ScreenDetectMode == "template");
+        ApplyModeStyle(ModeAiButton, _draft.ScreenDetectMode == "ai");
+        ApplyModeStyle(ModeHybridButton, _draft.ScreenDetectMode == "hybrid");
     }
 
     private void ThresholdPlus_Click(object sender, RoutedEventArgs e)
     {
         _draft.ScreenMatchThreshold += 0.05;
         ThresholdText.Text = $"{Math.Round(_draft.ScreenMatchThreshold * 100):0}%";
+        ApplyModeStyle(ModeTemplateButton, _draft.ScreenDetectMode == "template");
+        ApplyModeStyle(ModeAiButton, _draft.ScreenDetectMode == "ai");
+        ApplyModeStyle(ModeHybridButton, _draft.ScreenDetectMode == "hybrid");
     }
 
     private void BindCapture_Click(object sender, RoutedEventArgs e)

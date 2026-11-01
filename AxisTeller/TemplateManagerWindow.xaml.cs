@@ -52,6 +52,7 @@ public partial class TemplateManagerWindow : Window
 
         BuildKindButtons();
         ReloadTemplates();
+        RefreshAiStatus();
 
         Closed += (_, _) =>
         {
@@ -148,6 +149,7 @@ public partial class TemplateManagerWindow : Window
         }
 
         RoiHint.Text = $"拖出【{ActionKinds.FullLabel(kind)}】的识别区域，再点「保存为模板」。";
+        if (IsLoaded) RefreshAiStatus();
     }
 
     // ================= ROI 拖拽 =================
@@ -341,6 +343,101 @@ public partial class TemplateManagerWindow : Window
         }
 
         base.OnPreviewKeyDown(e);
+    }
+
+    // ================= AI 训练 =================
+
+    private void RefreshAiStatus()
+    {
+        var kindName = _selectedKind.ToString();
+        var pos = AiSampleStore.Count(kindName, true);
+        var neg = AiSampleStore.Count(kindName, false);
+        var model = AiModel.Load(kindName);
+        var extractor = App.Screen.Extractor;
+
+        var lines = new List<string>
+        {
+            $"【{ActionKinds.FullLabel(_selectedKind)}】样本：正 {pos} 张 / 负 {neg} 张",
+        };
+
+        if (!extractor.Available)
+            lines.Add("⚠ ONNX 模型不可用：" + (extractor.Error ?? "未知原因"));
+        else if (model is null)
+            lines.Add("模型：未训练（当前会走模板匹配）");
+        else
+            lines.Add($"模型：已训练 {model.TrainedAt} · 验证集 {model.ValidationAccuracy:P0}");
+
+        AiStatusText.Text = string.Join("\n", lines);
+    }
+
+    private void AiCapturePos_Click(object sender, RoutedEventArgs e) => CaptureAiSample(true);
+
+    private void AiCaptureNeg_Click(object sender, RoutedEventArgs e) => CaptureAiSample(false);
+
+    private void CaptureAiSample(bool positive)
+    {
+        if (_frame is null || _frameWidth <= 0)
+        {
+            StatusText.Text = "还没有画面，等预览出现后再采样。";
+            return;
+        }
+
+        if (_roiNative.Width < 6 || _roiNative.Height < 6)
+        {
+            StatusText.Text = "请先在左侧预览上拖出识别区域。";
+            return;
+        }
+
+        var roi = new Int32Rect((int)_roiNative.X, (int)_roiNative.Y, (int)_roiNative.Width, (int)_roiNative.Height);
+        var file = AiSampleStore.SavePatch(_selectedKind.ToString(), positive, _frame, _frameWidth, _frameHeight, roi);
+        RefreshAiStatus();
+        StatusText.Text = file is null
+            ? "采样失败。"
+            : $"已采集{(positive ? "正" : "负")}样本：{System.IO.Path.GetFileName(file)}";
+    }
+
+    private async void AiTrain_Click(object sender, RoutedEventArgs e)
+    {
+        if (_roiNative.Width < 6 || _roiNative.Height < 6)
+        {
+            StatusText.Text = "请先拖出识别区域，训练会用这个区域提取特征。";
+            return;
+        }
+
+        var kindName = _selectedKind.ToString();
+        var roi = new Int32Rect((int)_roiNative.X, (int)_roiNative.Y, (int)_roiNative.Width, (int)_roiNative.Height);
+        AiTrainButton.IsEnabled = false;
+        StatusText.Text = "正在提取特征并训练，请稍候…";
+
+        try
+        {
+            var (model, log) = await System.Threading.Tasks.Task.Run(() =>
+            {
+                var m = AiTrainer.Train(kindName, roi, App.Screen.Extractor, out var lg);
+                return (Model: m, Log: lg);
+            });
+
+            StatusText.Text = log;
+            if (model is not null)
+            {
+                App.Screen.InvalidateAiModels();
+                RefreshAiStatus();
+            }
+        }
+        finally
+        {
+            AiTrainButton.IsEnabled = true;
+        }
+    }
+
+    private void AiClear_Click(object sender, RoutedEventArgs e)
+    {
+        var kindName = _selectedKind.ToString();
+        AiSampleStore.Clear(kindName);
+        AiModel.Delete(kindName);
+        App.Screen.InvalidateAiModels();
+        RefreshAiStatus();
+        StatusText.Text = "已清除该动作的 AI 样本与模型。";
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

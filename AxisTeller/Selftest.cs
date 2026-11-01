@@ -32,6 +32,7 @@ public static class Selftest
         TestActionDetection();
         TestScreenVision();
         TestRoiMapper();
+        TestAiVision();
 
         var summary = $"\n{_passed} passed, {_failed} failed";
         Log.AppendLine(summary);
@@ -445,6 +446,93 @@ public static class Selftest
         var clamp = AxisTeller.Vision.RoiMapper.Map(-50, -50, 4000, 4000, fit, 2560, 1440);
         Check("ROI 越界裁剪", clamp.X >= 0 && clamp.Y >= 0 && clamp.X + clamp.Width <= 2560 && clamp.Y + clamp.Height <= 1440,
             $"rect={clamp.X},{clamp.Y} {clamp.Width}x{clamp.Height}");
+    }
+
+    private static void TestAiVision()
+    {
+        using var extractor = new AxisTeller.Vision.OnnxFeatureExtractor();
+        Check("ONNX 模型可加载", extractor.Available, extractor.Error ?? "");
+
+        byte[] MakeFrame(int w, int h, bool positive)
+        {
+            var data = new byte[w * h * 4];
+            for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+            {
+                var o = (y * w + x) * 4;
+                byte v = (byte)(40 + (x * 2 + y) % 60);
+                data[o] = v;
+                data[o + 1] = v;
+                data[o + 2] = v;
+                data[o + 3] = 255;
+                if (positive && Math.Abs(x - w / 2) + Math.Abs(y - h / 2) < w / 4)
+                {
+                    data[o] = 20;
+                    data[o + 1] = 180;
+                    data[o + 2] = 250;
+                }
+            }
+
+            return data;
+        }
+
+        var probe = MakeFrame(256, 256, true);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var f1 = extractor.Extract(probe, 256, 256);
+        sw.Stop();
+        Check("特征维度 1280", f1 is { Length: AxisTeller.Vision.OnnxFeatureExtractor.Dimension },
+            f1 is null ? "null" : $"len={f1.Length}");
+        Check("单次特征提取 < 2s", sw.ElapsedMilliseconds < 2000, $"{sw.ElapsedMilliseconds}ms");
+
+        if (f1 is null) return;
+
+        var f2 = extractor.Extract(probe, 256, 256);
+        var same = f2 is not null && f2.Length == f1.Length &&
+                   Enumerable.Range(0, 100).All(i => Math.Abs(f1[i * 7] - f2[i * 7]) < 1e-4);
+        Check("特征提取可复现", same);
+
+        // 端到端训练：合成正/负样本 → 训练 → 验证准确率
+        var temp = Path.Combine(Path.GetTempPath(), "axis-teller-ai-" + Guid.NewGuid().ToString("N"));
+        var oldRoot = Store.Root;
+        try
+        {
+            Store.RedirectTo(temp);
+            var rng = new Random(7);
+            for (var i = 0; i < 12; i++)
+            {
+                var pos = MakeFrame(128, 128, true);
+                var neg = MakeFrame(128, 128, false);
+                AxisTeller.Vision.AiSampleStore.SavePatch("Skill", true, pos, 128, 128, new System.Windows.Int32Rect(0, 0, 128, 128));
+                AxisTeller.Vision.AiSampleStore.SavePatch("Skill", false, neg, 128, 128, new System.Windows.Int32Rect(0, 0, 128, 128));
+            }
+
+            var model = AxisTeller.Vision.AiTrainer.Train("Skill", new System.Windows.Int32Rect(0, 0, 128, 128), extractor, out var log);
+            Check("训练出 AI 模型", model is not null, log);
+            if (model is not null)
+            {
+                Check("验证集准确率 >= 90%", model.ValidationAccuracy >= 0.9, $"{model.ValidationAccuracy:P0}");
+                var posFeatures = extractor.Extract(MakeFrame(128, 128, true), 128, 128);
+                var negFeatures = extractor.Extract(MakeFrame(128, 128, false), 128, 128);
+                Check("正样本得分高于负样本",
+                    posFeatures is not null && negFeatures is not null && model.Score(posFeatures) > model.Score(negFeatures),
+                    $"pos={model.Score(posFeatures!):F3} neg={model.Score(negFeatures!):F3}");
+
+                var loaded = AxisTeller.Vision.AiModel.Load("Skill");
+                Check("AI 模型可存档/读取", loaded is { Weights.Length: > 0 }, loaded is null ? "null" : $"acc={loaded.ValidationAccuracy:P0}");
+            }
+        }
+        finally
+        {
+            Store.RedirectTo(oldRoot);
+            try
+            {
+                if (Directory.Exists(temp)) Directory.Delete(temp, true);
+            }
+            catch
+            {
+                // 忽略
+            }
+        }
     }
 
     private static void TestSeed()

@@ -50,6 +50,31 @@ public partial class App : Application
             return;
         }
 
+        var aiTrainIndex = Array.FindIndex(args, a => string.Equals(a, "--ai-train", StringComparison.OrdinalIgnoreCase));
+        if (aiTrainIndex >= 0)
+        {
+            var hwnd = aiTrainIndex + 1 < args.Length && long.TryParse(args[aiTrainIndex + 1], out var h)
+                ? new IntPtr(h)
+                : IntPtr.Zero;
+            var kind = aiTrainIndex + 2 < args.Length ? args[aiTrainIndex + 2] : "Skill";
+            var output = aiTrainIndex + 3 < args.Length ? args[aiTrainIndex + 3] : Path.Combine(Path.GetTempPath(), "ai-train.txt");
+            var ok = ScreenDiag.RunAiTrain(hwnd, kind, output);
+            Shutdown(ok ? 0 : 1);
+            return;
+        }
+
+        var aiSmokeIndex = Array.FindIndex(args, a => string.Equals(a, "--ai-smoke", StringComparison.OrdinalIgnoreCase));
+        if (aiSmokeIndex >= 0)
+        {
+            var hwnd = aiSmokeIndex + 1 < args.Length && long.TryParse(args[aiSmokeIndex + 1], out var h)
+                ? new IntPtr(h)
+                : IntPtr.Zero;
+            var output = aiSmokeIndex + 2 < args.Length ? args[aiSmokeIndex + 2] : Path.Combine(Path.GetTempPath(), "ai-smoke.txt");
+            var ok = ScreenDiag.RunAiSmoke(hwnd, output);
+            Shutdown(ok ? 0 : 1);
+            return;
+        }
+
         var tplSmokeIndex = Array.FindIndex(args, a => string.Equals(a, "--tpl-smoke", StringComparison.OrdinalIgnoreCase));
         if (tplSmokeIndex >= 0)
         {

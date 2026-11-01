@@ -1,26 +1,28 @@
-using System.IO;
 using AxisTeller.Capture;
 using AxisTeller.Vision;
 using Windows.Graphics.Capture;
 
 namespace AxisTeller;
 
-/// <summary>画面检测：抓帧 + 用模板库匹配当前动作类型，命中即触发。</summary>
+/// <summary>画面检测：抓帧 + 模板匹配 / ONNX 视觉 AI，命中即触发。</summary>
 public sealed class ScreenDetector : IDisposable
 {
+    private static readonly Lazy<OnnxFeatureExtractor> SharedExtractor = new(() => new OnnxFeatureExtractor());
+
     private readonly CaptureService _capture = new();
     private readonly TemplateLibrary _library = new();
     private readonly TemplateMatcher _matcher = new();
+    private readonly Dictionary<string, AiModel?> _aiModels = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _matchGate = new();
 
     private ActionKind _targetKind = ActionKind.Unknown;
+    private string _detectMode = "template";
     private double _threshold = 0.8;
     private DateTime _lastDetected = DateTime.MinValue;
     private DateTime _lastMatchAttempt = DateTime.MinValue;
     private int _matching;
     private bool _blackWarned;
     private bool _latched;
-    private byte[]? _lastFrame;
     private int _lastWidth;
     private int _lastHeight;
     private int _frameCount;
@@ -37,19 +39,24 @@ public sealed class ScreenDetector : IDisposable
     public bool IsRunning => _capture.IsCapturing;
     public CaptureService Capture => _capture;
     public TemplateLibrary Library => _library;
+    public OnnxFeatureExtractor Extractor => SharedExtractor.Value;
+    public string DetectMode => _detectMode;
 
     /// <summary>最近一次匹配的最佳分数（用于界面显示 / 排查）。</summary>
     public double LastScore { get; private set; } = -1;
+    public double LastAiScore { get; private set; } = -1;
     public ActionKind LastMatchedKind { get; private set; } = ActionKind.Unknown;
     public string LastMatchedTemplate { get; private set; } = "";
     public int DisplayFps { get; private set; }
     public int FrameWidth => _lastWidth;
     public int FrameHeight => _lastHeight;
 
-    public void Start(GraphicsCaptureItem item, double threshold)
+    public void Start(GraphicsCaptureItem item, double threshold, string? detectMode = null)
     {
         _threshold = threshold;
+        if (!string.IsNullOrWhiteSpace(detectMode)) _detectMode = detectMode;
         _library.Reload();
+        _aiModels.Clear();
         _recent.Clear();
         _latched = false;
         _capture.Error += OnError;
@@ -71,7 +78,21 @@ public sealed class ScreenDetector : IDisposable
 
     public void SetThreshold(double threshold) => _threshold = threshold;
 
-    /// <summary>当前动作类型可用的模板数量。</summary>
+    public void SetDetectMode(string mode) => _detectMode = mode;
+
+    public void InvalidateAiModels() => _aiModels.Clear();
+
+    /// <summary>某个动作类型是否已经训练过 AI 模型。</summary>
+    public AiModel? GetAiModel(ActionKind kind) => GetAiModel(kind.ToString());
+
+    public AiModel? GetAiModel(string kind)
+    {
+        if (_aiModels.TryGetValue(kind, out var cached)) return cached;
+        var model = AiModel.Load(kind);
+        _aiModels[kind] = model;
+        return model;
+    }
+
     public int TemplateCount(ActionKind kind) => _library.For(kind).Count;
 
     public int TotalTemplateCount => _library.Templates.Count;
@@ -82,7 +103,6 @@ public sealed class ScreenDetector : IDisposable
     {
         _lastWidth = width;
         _lastHeight = height;
-        _lastFrame = bgra;
         _frameCount++;
         if ((DateTime.UtcNow - _fpsStart).TotalMilliseconds >= 1000)
         {
@@ -129,12 +149,21 @@ public sealed class ScreenDetector : IDisposable
 
         foreach (var kind in kinds)
         {
-            var (score, name) = MatchKind(kind, bgra, width, height);
+            var templateScore = MatchTemplates(kind, bgra, width, height, out var name);
+
+            var aiScore = kind == _targetKind ? MatchAi(kind, bgra, width, height) : -1;
+            var score = _detectMode switch
+            {
+                "ai" => aiScore >= 0 ? aiScore : templateScore,
+                "hybrid" => Math.Max(templateScore, aiScore),
+                _ => templateScore,
+            };
+
             if (score > bestScore)
             {
                 bestScore = score;
                 bestKind = kind;
-                bestName = name;
+                bestName = _detectMode != "ai" && templateScore >= aiScore ? name : "AI 模型";
             }
         }
 
@@ -168,14 +197,7 @@ public sealed class ScreenDetector : IDisposable
         }
     }
 
-    /// <summary>手动推进/切换步骤后重新武装，让下一次「出现」还能触发。</summary>
-    public void ReArm()
-    {
-        _latched = false;
-        _recent.Clear();
-    }
-
-    private (double Score, string Name) MatchKind(ActionKind kind, byte[] bgra, int width, int height)
+    private double MatchTemplates(ActionKind kind, byte[] bgra, int width, int height, out string name)
     {
         var bestScore = -1.0;
         var bestName = "";
@@ -192,7 +214,36 @@ public sealed class ScreenDetector : IDisposable
             }
         }
 
-        return (bestScore, bestName);
+        name = bestName;
+        return bestScore;
+    }
+
+    /// <summary>ONNX 特征 + 本地训练的分类头；没有模型时返回 -1。</summary>
+    private double MatchAi(ActionKind kind, byte[] bgra, int width, int height)
+    {
+        if (string.Equals(_detectMode, "template", StringComparison.OrdinalIgnoreCase)) return -1;
+        var model = GetAiModel(kind);
+        if (model is null) return -1;
+        var extractor = SharedExtractor.Value;
+        if (!extractor.Available) return -1;
+
+        try
+        {
+            var rx = Math.Clamp(model.RoiX, 0, Math.Max(0, width - 1));
+            var ry = Math.Clamp(model.RoiY, 0, Math.Max(0, height - 1));
+            var rw = Math.Clamp(model.RoiWidth, 1, width - rx);
+            var rh = Math.Clamp(model.RoiHeight, 1, height - ry);
+            var patch = TemplateMatcher.CropBgra(bgra, width, height, rx, ry, rw, rh);
+            var features = extractor.Extract(patch, rw, rh);
+            if (features is null) return -1;
+            var score = model.Score(features);
+            LastAiScore = score;
+            return score;
+        }
+        catch
+        {
+            return -1;
+        }
     }
 
     private void Fire(ActionKind kind, string templateName, double score)
@@ -205,6 +256,13 @@ public sealed class ScreenDetector : IDisposable
         LastMatchedKind = kind;
         LastMatchedTemplate = templateName;
         Detected?.Invoke(kind);
+    }
+
+    /// <summary>手动推进/切换步骤后重新武装，让下一次「出现」还能触发。</summary>
+    public void ReArm()
+    {
+        _latched = false;
+        _recent.Clear();
     }
 
     public void Dispose() => Stop();

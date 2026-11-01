@@ -559,16 +559,31 @@ public partial class MainWindow : Window
         var kind = _engine.CurrentStep?.ResolvedKind ?? ActionKind.Unknown;
         var count = kind == ActionKind.Unknown ? App.Screen.TotalTemplateCount : App.Screen.TemplateCount(kind);
         var kindLabel = kind == ActionKind.Unknown ? "自动" : ActionKinds.Label(kind);
+        var mode = State.Settings.ScreenDetectMode;
+        var ai = kind == ActionKind.Unknown ? null : App.Screen.GetAiModel(kind);
+        var aiScore = App.Screen.LastAiScore;
+        var templateScore = App.Screen.LastScore;
+        var scoreText = templateScore < 0 ? "--" : $"{templateScore * 100:0}%";
+        var aiText = aiScore < 0 ? "--" : $"{aiScore * 100:0}%";
 
         string hint;
-        if (count == 0)
+        if (mode == "ai")
         {
-            hint = $"画面识别中 · 当前动作【{kindLabel}】还没有模板，去「设置 → 管理模板」截一张";
+            hint = ai is null
+                ? $"画面识别中 · AI 模式：当前动作【{kindLabel}】还没训练模型，已退回模板（{count} 张）"
+                : $"画面识别中 · AI 模型 · 匹配 {aiText}";
+        }
+        else if (mode == "hybrid")
+        {
+            hint = ai is null
+                ? $"画面识别中 · 模板 {count} 张 · 匹配 {scoreText}（AI 未训练）"
+                : $"画面识别中 · 模板 {count} 张 + AI · 匹配 {scoreText} / AI {aiText}";
         }
         else
         {
-            var score = App.Screen.LastScore;
-            hint = $"画面识别中 · 模板 {count} 张 · 匹配 {(score < 0 ? "--" : $"{score * 100:0}%")}";
+            hint = count == 0
+                ? $"画面识别中 · 当前动作【{kindLabel}】还没有模板，去「设置 → 管理模板」截一张"
+                : $"画面识别中 · 模板 {count} 张 · 匹配 {scoreText}";
         }
 
         _overlay!.SetDetectStatus(hint + $" · {State.Settings.NextKey} 手动 · {State.Settings.ToggleOverlayKey} 隐藏");
@@ -593,7 +608,8 @@ public partial class MainWindow : Window
             App.Screen.Detected += OnScreenDetected;
             App.Screen.Error += OnScreenError;
             App.Screen.Warning += OnScreenWarning;
-            App.Screen.Start(App.CaptureItem, State.Settings.ScreenMatchThreshold);
+            App.Screen.SetDetectMode(State.Settings.ScreenDetectMode);
+            App.Screen.Start(App.CaptureItem, State.Settings.ScreenMatchThreshold, State.Settings.ScreenDetectMode);
         }
 
         UpdateScreenTarget();
